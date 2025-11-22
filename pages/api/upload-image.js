@@ -1,11 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary'
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-})
-
 export const config = {
   api: {
     bodyParser: {
@@ -22,17 +16,30 @@ export default async function handler(req, res) {
   try {
     const { image, filename } = req.body
     
+    // Configure Cloudinary for each request
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dd6vtpwer',
+      api_key: process.env.CLOUDINARY_API_KEY || '179617184476631',
+      api_secret: process.env.CLOUDINARY_API_SECRET || 'w0IT-tATI_UYzX1kSbJ6G01SrS0',
+    })
+    
+    console.log('Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dd6vtpwer',
+      api_key: process.env.CLOUDINARY_API_KEY ? 'SET' : 'NOT SET',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'NOT SET'
+    })
+    
     const result = await cloudinary.uploader.upload(image, {
       public_id: filename,
       folder: 'trade-journal',
       resource_type: 'auto',
-      format: 'jpg',
-      quality: 'auto:good',
     })
 
+    console.log('Upload successful:', result.secure_url)
     res.status(200).json({ success: true, url: result.secure_url })
   } catch (error) {
     console.error('Cloudinary upload error:', error)
-    res.status(500).json({ success: false, error: 'Upload failed' })
+    console.error('Error details:', error.message)
+    res.status(500).json({ success: false, error: error.message || 'Upload failed' })
   }
 }

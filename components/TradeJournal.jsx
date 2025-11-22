@@ -257,6 +257,10 @@ export default function TradeJournal() {
               })
             })
             const result = await response.json()
+            if (!result.success) {
+              console.error('Upload failed:', result.error)
+              alert(`Upload failed: ${result.error}`)
+            }
             resolve(result.success ? result.url : null)
           }
           reader.readAsDataURL(file)
@@ -317,14 +321,8 @@ export default function TradeJournal() {
   async function saveReview(payload) {
     if (!selected) return
     try {
-      // Merge existing trade images with review images
-      const existingImages = selected.images || []
-      const reviewImages = payload.images || []
-      const allImages = [...existingImages, ...reviewImages]
-      
       const updates = { 
         review: payload, 
-        images: allImages, 
         status: 'closed', 
         updatedAt: new Date()
       }
