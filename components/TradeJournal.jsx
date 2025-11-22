@@ -546,8 +546,17 @@ export default function TradeJournal() {
                   src={(selected.images || [])[currentImageIndex]} 
                   alt={`img-${currentImageIndex}`} 
                   onClick={() => setImageOverlay(true)}
+                  onError={(e) => {
+                    console.error('Image failed to load:', e.target.src)
+                    e.target.style.display = 'none'
+                    e.target.nextSibling.style.display = 'block'
+                  }}
                   style={{maxWidth:'100%',maxHeight:300,objectFit:'contain',borderRadius:8,cursor:'pointer',border:'2px solid #e2e8f0'}} 
                 />
+                <div style={{display:'none',padding:20,color:'#dc2626',textAlign:'center',border:'2px dashed #dc2626',borderRadius:8}}>
+                  ❌ Image failed to load<br/>
+                  <small>URL: {(selected.images || [])[currentImageIndex]}</small>
+                </div>
               </div>
             </div>
           ) : (

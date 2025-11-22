@@ -25,6 +25,9 @@ export default async function handler(req, res) {
     const result = await cloudinary.uploader.upload(image, {
       public_id: filename,
       folder: 'trade-journal',
+      resource_type: 'auto',
+      format: 'jpg',
+      quality: 'auto:good',
     })
 
     res.status(200).json({ success: true, url: result.secure_url })
