@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { repository } from '../services/repository'
+import packageJson from '../package.json'
 
 const AgGridReact = dynamic(() => import('ag-grid-react').then(m => m?.AgGridReact || m?.default), { ssr: false, loading: () => <div>Loading grid...</div> })
 import ReviewPanel from './ReviewPanel'
@@ -370,6 +371,8 @@ export default function TradeJournal() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [imageOverlay, setImageOverlay] = useState(false)
   const [editingImage, setEditingImage] = useState(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showMobilePanel, setShowMobilePanel] = useState('trades')
 
   const handleMouseDown = (e) => {
     setIsDragging(true)
@@ -399,6 +402,21 @@ export default function TradeJournal() {
     }
   }, [isDragging])
 
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+      if (window.innerWidth < 768) {
+        setLeftWidth(100)
+      } else {
+        setLeftWidth(80)
+      }
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   async function saveEditedImage(newImageUrl) {
     if (!selected) return
     const updatedImages = [...(selected.images || [])]
@@ -415,11 +433,27 @@ export default function TradeJournal() {
   }
 
   return (
-    <div ref={containerRef} style={{display:'flex',height:'100%',position:'relative',margin:0,padding:0}}>
-      <div style={{width:`${leftWidth}%`,display:'flex',flexDirection:'column',gap:8,margin:0,padding:0}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+    <div ref={containerRef} style={{display:'flex',height:'100%',position:'relative',margin:0,padding:0,flexDirection:isMobile ? 'column' : 'row'}}>
+      {isMobile && (
+        <div style={{display:'flex',gap:8,padding:8,background:'#f8fafc',borderBottom:'1px solid #e2e8f0'}}>
+          <button 
+            onClick={() => setShowMobilePanel('trades')}
+            style={{padding:'6px 12px',background:showMobilePanel === 'trades' ? '#3182ce' : 'transparent',color:showMobilePanel === 'trades' ? '#fff' : '#000',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}
+          >
+            Trades
+          </button>
+          <button 
+            onClick={() => setShowMobilePanel('review')}
+            style={{padding:'6px 12px',background:showMobilePanel === 'review' ? '#3182ce' : 'transparent',color:showMobilePanel === 'review' ? '#fff' : '#000',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}
+          >
+            Review & Images
+          </button>
+        </div>
+      )}
+      <div style={{width:isMobile ? '100%' : `${leftWidth}%`,display:isMobile && showMobilePanel !== 'trades' ? 'none' : 'flex',flexDirection:'column',gap:8,margin:0,padding:0}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <div style={{fontWeight:700}}>Trades</div>
+            <div style={{fontWeight:700}}>Trades <span style={{fontSize:'12px',color:'#666',fontWeight:'normal'}}>v{packageJson.version}</span></div>
             <div>
               <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc'}}>
                 <option value="">All dates</option>
@@ -429,10 +463,10 @@ export default function TradeJournal() {
               </select>
             </div>
           </div>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={() => setModalOpen(true)} style={{padding:'6px 12px',background:'#3182ce',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer'}}>Create New Trade</button>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            <button onClick={() => setModalOpen(true)} style={{padding:'6px 12px',background:'#3182ce',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer',fontSize:isMobile ? '12px' : '14px'}}>Create New Trade</button>
             {selected && (
-              <button onClick={deleteTrade} style={{padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer'}}>Delete Selected</button>
+              <button onClick={deleteTrade} style={{padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer',fontSize:isMobile ? '12px' : '14px'}}>Delete Selected</button>
             )}
           </div>
         </div>
@@ -470,31 +504,33 @@ export default function TradeJournal() {
         </div>
       </div>
 
-      {/* Drag Handle */}
-      <div 
-        onMouseDown={handleMouseDown}
-        style={{
-          width: 8,
-          cursor: 'col-resize',
-          backgroundColor: isDragging ? '#2b6ef6' : '#e2e8f0',
-          transition: 'background-color 0.2s',
-          position: 'relative',
-          zIndex: 10
-        }}
-      >
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 3,
-          height: 30,
-          backgroundColor: isDragging ? '#ffffff' : '#94a3b8',
-          borderRadius: 2
-        }} />
-      </div>
+      {/* Drag Handle - Hidden on mobile */}
+      {!isMobile && (
+        <div 
+          onMouseDown={handleMouseDown}
+          style={{
+            width: 8,
+            cursor: 'col-resize',
+            backgroundColor: isDragging ? '#2b6ef6' : '#e2e8f0',
+            transition: 'background-color 0.2s',
+            position: 'relative',
+            zIndex: 10
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 3,
+            height: 30,
+            backgroundColor: isDragging ? '#ffffff' : '#94a3b8',
+            borderRadius: 2
+          }} />
+        </div>
+      )}
 
-      <div style={{width:`${100-leftWidth}%`,display:'flex',flexDirection:'column'}}>
+      <div style={{width:isMobile ? '100%' : `${100-leftWidth}%`,display:isMobile && showMobilePanel !== 'review' ? 'none' : 'flex',flexDirection:'column'}}>
         <div style={{flex:1,overflow:'auto',padding:8}}>
           <div style={{marginBottom:12}}>
             {selected && (
