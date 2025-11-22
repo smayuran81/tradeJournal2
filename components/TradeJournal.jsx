@@ -279,6 +279,7 @@ export default function TradeJournal() {
 
   async function handleAddImages(files) {
     if (!selected) return
+    setUploadingImages(true)
     try {
       const uploadPromises = files.map(async (file) => {
         const reader = new FileReader()
@@ -315,6 +316,8 @@ export default function TradeJournal() {
     } catch (error) {
       console.error('Failed to upload images:', error)
       alert('Failed to upload images. Please try again.')
+    } finally {
+      setUploadingImages(false)
     }
   }
 
@@ -408,6 +411,7 @@ export default function TradeJournal() {
   const [editingImage, setEditingImage] = useState(null)
   const [isMobile, setIsMobile] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState('trades')
+  const [uploadingImages, setUploadingImages] = useState(false)
 
   const handleMouseDown = (e) => {
     setIsDragging(true)
@@ -593,7 +597,16 @@ export default function TradeJournal() {
             <div style={{fontWeight:700}}>Images</div>
             <div>
               <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={onFilesChange} style={{display:'none'}} />
-              <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>Add Images</button>
+              <button 
+                onClick={() => fileInputRef.current && fileInputRef.current.click()} 
+                disabled={uploadingImages}
+                style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:uploadingImages ? 'not-allowed' : 'pointer',opacity:uploadingImages ? 0.6 : 1,display:'flex',alignItems:'center',gap:6}}
+              >
+                {uploadingImages && (
+                  <div style={{width:16,height:16,border:'2px solid #ccc',borderTop:'2px solid #3182ce',borderRadius:'50%',animation:'spin 1s linear infinite'}} />
+                )}
+                {uploadingImages ? 'Uploading...' : 'Add Images'}
+              </button>
             </div>
           </div>
 
