@@ -23,11 +23,34 @@ export default function ReviewPanel({ review = {}, onSave }) {
 
   async function addFiles(e) {
     const files = Array.from(e.target.files || [])
-    const reads = files.map(f => new Promise(res => {
-      const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f)
-    }))
-    const data = await Promise.all(reads)
-    setImages(img => [...img, ...data])
+    if (!files.length) return
+    
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const reader = new FileReader()
+        return new Promise((resolve) => {
+          reader.onload = async () => {
+            const response = await fetch('/api/upload-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                image: reader.result,
+                filename: `review-${Date.now()}-${file.name}`
+              })
+            })
+            const result = await response.json()
+            resolve(result.success ? result.url : null)
+          }
+          reader.readAsDataURL(file)
+        })
+      })
+      
+      const imageUrls = (await Promise.all(uploadPromises)).filter(Boolean)
+      setImages(img => [...img, ...imageUrls])
+    } catch (error) {
+      console.error('Failed to upload images:', error)
+      alert('Failed to upload images. Please try again.')
+    }
   }
 
   function removeImage(i) { setImages(img => img.filter((_, idx) => idx !== i)) }

@@ -39,6 +39,19 @@ class Repository {
     }
   }
 
+  async deleteTrade(id: string): Promise<void> {
+    console.log('Repository: Deleting Trade ID:', id)
+    
+    const response = await fetch(`/api/trades/${id}`, {
+      method: 'DELETE'
+    })
+    
+    const result = await response.json()
+    if (!result.success) {
+      throw new Error(`Delete failed: ${result.error}`)
+    }
+  }
+
   // Weekly Analysis Methods
   async saveWeeklyData(weekKey: string, pairs: any[], reviews: Record<string, PairReview>): Promise<void> {
     const weeklyData: WeeklyData = {

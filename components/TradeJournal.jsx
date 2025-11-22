@@ -4,6 +4,7 @@ import { repository } from '../services/repository'
 
 const AgGridReact = dynamic(() => import('ag-grid-react').then(m => m?.AgGridReact || m?.default), { ssr: false, loading: () => <div>Loading grid...</div> })
 import ReviewPanel from './ReviewPanel'
+import ImageEditor from './ImageEditor'
 const WysiwygEditor = dynamic(async () => {
   const m = await import('./WysiwygEditor')
   return m?.default || m
@@ -242,13 +243,39 @@ export default function TradeJournal() {
 
   async function handleAddImages(files) {
     if (!selected) return
-    const reads = files.map(f => new Promise(res => {
-      const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f)
-    }))
-    const data = await Promise.all(reads)
-    setTrades(prev => prev.map(t => t.id === selected.id ? { ...t, images: [...(t.images||[]), ...data] } : t))
-    // refresh selected reference
-    setSelected(s => ({ ...(s || {}), images: [...(s?.images||[]), ...(data||[])] }))
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const reader = new FileReader()
+        return new Promise((resolve) => {
+          reader.onload = async () => {
+            const response = await fetch('/api/upload-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                image: reader.result,
+                filename: `trade-${selected.id}-${Date.now()}-${file.name}`
+              })
+            })
+            const result = await response.json()
+            resolve(result.success ? result.url : null)
+          }
+          reader.readAsDataURL(file)
+        })
+      })
+      
+      const imageUrls = (await Promise.all(uploadPromises)).filter(Boolean)
+      const updatedImages = [...(selected.images || []), ...imageUrls]
+      
+      // Update database
+      await repository.updateTrade(selected.id, { images: updatedImages })
+      
+      // Update local state
+      setTrades(prev => prev.map(t => t.id === selected.id ? { ...t, images: updatedImages } : t))
+      setSelected(s => ({ ...(s || {}), images: updatedImages }))
+    } catch (error) {
+      console.error('Failed to upload images:', error)
+      alert('Failed to upload images. Please try again.')
+    }
   }
 
   // modal image handlers (for images added during creation)
@@ -268,18 +295,36 @@ export default function TradeJournal() {
   }
 
 
-  function removeImage(idx) {
+  async function removeImage(idx) {
     if (!selected) return
-    setTrades(prev => prev.map(t => t.id === selected.id ? { ...t, images: (t.images||[]).filter((_, i) => i !== idx) } : t))
-    setSelected(s => ({ ...(s||{}), images: (s.images||[]).filter((_, i) => i !== idx) }))
+    const updatedImages = (selected.images || []).filter((_, i) => i !== idx)
+    
+    // Update database
+    await repository.updateTrade(selected.id, { images: updatedImages })
+    
+    // Update local state
+    setTrades(prev => prev.map(t => t.id === selected.id ? { ...t, images: updatedImages } : t))
+    setSelected(s => ({ ...(s || {}), images: updatedImages }))
+    
+    // Adjust current image index if needed
+    if (currentImageIndex >= updatedImages.length && updatedImages.length > 0) {
+      setCurrentImageIndex(updatedImages.length - 1)
+    } else if (updatedImages.length === 0) {
+      setCurrentImageIndex(0)
+    }
   }
 
   async function saveReview(payload) {
     if (!selected) return
     try {
+      // Merge existing trade images with review images
+      const existingImages = selected.images || []
+      const reviewImages = payload.images || []
+      const allImages = [...existingImages, ...reviewImages]
+      
       const updates = { 
         review: payload, 
-        images: payload.images || selected.images || [], 
+        images: allImages, 
         status: 'closed', 
         updatedAt: new Date()
       }
@@ -295,6 +340,25 @@ export default function TradeJournal() {
     }
   }
 
+  async function deleteTrade() {
+    if (!selected) return
+    
+    const confirmed = window.confirm(`Are you sure you want to delete the trade for ${selected.pair}?\n\nThis action cannot be undone.`)
+    if (!confirmed) return
+    
+    try {
+      console.log('Deleting trade:', selected.id)
+      await repository.deleteTrade(selected.id)
+      // Remove from local state
+      setTrades(prev => prev.filter(t => t.id !== selected.id))
+      setSelected(null)
+      console.log('Trade deleted successfully')
+    } catch (error) {
+      console.error('Failed to delete trade:', error)
+      alert('Failed to delete trade. Please try again.')
+    }
+  }
+
   // small helper to wire file input
   function onFilesChange(e) {
     const files = Array.from(e.target.files || [])
@@ -302,9 +366,12 @@ export default function TradeJournal() {
     e.target.value = ''
   }
 
-  const [leftWidth, setLeftWidth] = useState(50)
+  const [leftWidth, setLeftWidth] = useState(80)
   const [isDragging, setIsDragging] = useState(false)
   const containerRef = useRef()
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [imageOverlay, setImageOverlay] = useState(false)
+  const [editingImage, setEditingImage] = useState(null)
 
   const handleMouseDown = (e) => {
     setIsDragging(true)
@@ -334,6 +401,21 @@ export default function TradeJournal() {
     }
   }, [isDragging])
 
+  async function saveEditedImage(newImageUrl) {
+    if (!selected) return
+    const updatedImages = [...(selected.images || [])]
+    updatedImages[currentImageIndex] = newImageUrl
+    
+    // Update database
+    await repository.updateTrade(selected.id, { images: updatedImages })
+    
+    // Update local state
+    setTrades(prev => prev.map(t => t.id === selected.id ? { ...t, images: updatedImages } : t))
+    setSelected(s => ({ ...(s || {}), images: updatedImages }))
+    
+    setEditingImage(null)
+  }
+
   return (
     <div ref={containerRef} style={{display:'flex',height:'100%',position:'relative'}}>
       <div style={{width:`${leftWidth}%`,display:'flex',flexDirection:'column',gap:8,paddingRight:6}}>
@@ -349,8 +431,11 @@ export default function TradeJournal() {
               </select>
             </div>
           </div>
-          <div>
+          <div style={{display:'flex',gap:8}}>
             <button onClick={() => setModalOpen(true)} style={{padding:'6px 12px',background:'#3182ce',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer'}}>Create New Trade</button>
+            {selected && (
+              <button onClick={deleteTrade} style={{padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer'}}>Delete Selected</button>
+            )}
           </div>
         </div>
 
@@ -411,31 +496,9 @@ export default function TradeJournal() {
         }} />
       </div>
 
-      <div style={{width:`${100-leftWidth}%`,overflow:'auto',paddingLeft:6}}>
-        <div style={{padding:8}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div style={{fontWeight:700,marginBottom:8}}>Images</div>
-            <div>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={onFilesChange} style={{display:'none'}} />
-              <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>Add Images</button>
-            </div>
-          </div>
-
-          {selected ? (
-            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
-              {(selected.images || []).length === 0 && <div style={{color:'var(--muted)'}}>No images for this trade.</div>}
-              {(selected.images || []).map((src, idx) => (
-                <div key={idx} style={{position:'relative'}}>
-                  <img src={src} alt={`img-${idx}`} style={{width:320,height:200,objectFit:'cover',borderRadius:8}} />
-                  <button onClick={() => removeImage(idx)} style={{position:'absolute',top:6,right:6}}>✕</button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{color:'var(--muted)'}}>No trade selected.</div>
-          )}
-
-          <div style={{marginTop:12}}>
+      <div style={{width:`${100-leftWidth}%`,display:'flex',flexDirection:'column',paddingLeft:6}}>
+        <div style={{flex:1,overflow:'auto',padding:8}}>
+          <div style={{marginBottom:12}}>
             {selected && (
               <div>
                 <div style={{fontWeight:700,marginBottom:6}}>Review</div>
@@ -444,7 +507,96 @@ export default function TradeJournal() {
             )}
           </div>
         </div>
+        
+        {/* Image Section at Bottom */}
+        <div style={{borderTop:'1px solid #e2e8f0',padding:8,minHeight:200}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <div style={{fontWeight:700}}>Images</div>
+            <div>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={onFilesChange} style={{display:'none'}} />
+              <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>Add Images</button>
+            </div>
+          </div>
+
+          {selected && (selected.images || []).length > 0 ? (
+            <div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                <button 
+                  onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}
+                  disabled={currentImageIndex === 0}
+                  style={{padding:'4px 8px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:currentImageIndex === 0 ? 'not-allowed' : 'pointer',opacity:currentImageIndex === 0 ? 0.5 : 1}}
+                >
+                  ←
+                </button>
+                <span style={{fontSize:14,color:'var(--muted)'}}>
+                  {currentImageIndex + 1} of {(selected.images || []).length}
+                </span>
+                <button 
+                  onClick={() => setCurrentImageIndex(i => Math.min((selected.images || []).length - 1, i + 1))}
+                  disabled={currentImageIndex >= (selected.images || []).length - 1}
+                  style={{padding:'4px 8px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:currentImageIndex >= (selected.images || []).length - 1 ? 'not-allowed' : 'pointer',opacity:currentImageIndex >= (selected.images || []).length - 1 ? 0.5 : 1}}
+                >
+                  →
+                </button>
+                <button onClick={() => setEditingImage((selected.images || [])[currentImageIndex])} style={{padding:'4px 8px',background:'#10b981',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer',marginLeft:8}}>Edit</button>
+                <button onClick={() => removeImage(currentImageIndex)} style={{padding:'4px 8px',background:'#dc2626',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer'}}>Delete</button>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <img 
+                  src={(selected.images || [])[currentImageIndex]} 
+                  alt={`img-${currentImageIndex}`} 
+                  onClick={() => setImageOverlay(true)}
+                  style={{maxWidth:'100%',maxHeight:300,objectFit:'contain',borderRadius:8,cursor:'pointer',border:'2px solid #e2e8f0'}} 
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{color:'var(--muted)',textAlign:'center',padding:20}}>
+              {selected ? 'No images for this trade.' : 'No trade selected.'}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Image Overlay */}
+      {imageOverlay && selected && (selected.images || []).length > 0 && (
+        <div>
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:100}} onClick={() => setImageOverlay(false)} />
+          <div style={{position:'fixed',inset:0,display:'flex',alignItems:'center',justifyContent:'center',zIndex:101}}>
+            <div style={{position:'relative',maxWidth:'90vw',maxHeight:'90vh'}}>
+              <img 
+                src={(selected.images || [])[currentImageIndex]} 
+                alt={`img-${currentImageIndex}`} 
+                style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}} 
+              />
+              <button 
+                onClick={() => setImageOverlay(false)}
+                style={{position:'absolute',top:10,right:10,background:'rgba(0,0,0,0.7)',color:'#fff',border:'none',borderRadius:'50%',width:32,height:32,cursor:'pointer',fontSize:16}}
+              >
+                ✕
+              </button>
+              {(selected.images || []).length > 1 && (
+                <>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => Math.max(0, i - 1)) }}
+                    disabled={currentImageIndex === 0}
+                    style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',background:'rgba(0,0,0,0.7)',color:'#fff',border:'none',borderRadius:'50%',width:40,height:40,cursor:currentImageIndex === 0 ? 'not-allowed' : 'pointer',opacity:currentImageIndex === 0 ? 0.5 : 1,fontSize:18}}
+                  >
+                    ←
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => Math.min((selected.images || []).length - 1, i + 1)) }}
+                    disabled={currentImageIndex >= (selected.images || []).length - 1}
+                    style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'rgba(0,0,0,0.7)',color:'#fff',border:'none',borderRadius:'50%',width:40,height:40,cursor:currentImageIndex >= (selected.images || []).length - 1 ? 'not-allowed' : 'pointer',opacity:currentImageIndex >= (selected.images || []).length - 1 ? 0.5 : 1,fontSize:18}}
+                  >
+                    →
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {modalOpen && (
@@ -519,6 +671,15 @@ export default function TradeJournal() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Image Editor */}
+      {editingImage && (
+        <ImageEditor 
+          imageUrl={editingImage}
+          onSave={saveEditedImage}
+          onClose={() => setEditingImage(null)}
+        />
       )}
     </div>
   )

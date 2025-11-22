@@ -45,6 +45,18 @@ export default async function handler(req, res) {
       }
       
       res.json({ success: true, data: result })
+    } else if (req.method === 'DELETE') {
+      console.log('Deleting trade with ID:', id)
+      
+      const result = await collection.deleteOne({ id: id })
+      
+      console.log('MongoDB delete result:', result)
+      
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ success: false, error: 'Trade not found' })
+      }
+      
+      res.json({ success: true, data: result })
     } else {
       res.status(405).json({ success: false, error: 'Method not allowed' })
     }
