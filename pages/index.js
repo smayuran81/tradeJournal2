@@ -72,7 +72,7 @@ export default function Home() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'background.default' }}>
       <Topbar onToggle={() => setSidebarOpen(s => !s)} userName="Mayuran" weekKey={weekKey} onWeekChange={setWeekKey} onNavigate={(v) => setView(v)} />
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {sidebarOpen && <Sidebar open={sidebarOpen} onNavigate={(v) => setView(v)} />}
+        {sidebarOpen && <Sidebar open={sidebarOpen} onNavigate={(v) => setView(v)} onClose={() => setSidebarOpen(false)} />}
         <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
           <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.08)', backgroundColor: 'background.paper' }}>
             {view !== 'trade-journal' && (

@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { repository } from '../services/repository'
 import packageJson from '../package.json'
+import { MAJOR_PAIRS } from '../data/pairs'
 
 const AgGridReact = dynamic(() => import('ag-grid-react').then(m => m?.AgGridReact || m?.default), { ssr: false, loading: () => <div>Loading grid...</div> })
 import ReviewPanel from './ReviewPanel'
@@ -122,7 +123,18 @@ export default function TradeJournal() {
 
   const onSelectionChanged = useCallback((params) => {
     const sel = params.api.getSelectedRows()[0] || null
-    setSelected(sel ? sel.raw : null)
+    const newSelected = sel ? sel.raw : null
+    setSelected(newSelected)
+    
+    // Adjust layout when selection changes
+    setLeftWidth(prev => {
+      if (newSelected && prev === 100) {
+        return 60
+      } else if (!newSelected && prev < 100) {
+        return 100
+      }
+      return prev
+    })
   }, [])
 
   const getRowClass = useCallback((params) => {
@@ -172,13 +184,35 @@ export default function TradeJournal() {
   }, [])
 
   // Create new trade entry (modal-driven)
-  const [creating, setCreating] = useState({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [] })
+  const [creating, setCreating] = useState({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [], entryTime: '', exitTime: '' })
   const [modalOpen, setModalOpen] = useState(false)
   const [modalPos, setModalPos] = useState({ x: 120, y: 80 })
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
 
   async function createTrade() {
+    // Validation
+    if (!creating.pair) {
+      alert('Please select a currency pair')
+      return
+    }
+    if (!creating.entryPrice) {
+      alert('Entry price is required')
+      return
+    }
+    if (!creating.exitPrice) {
+      alert('Exit price is required')
+      return
+    }
+    if (!creating.stopLoss) {
+      alert('Stop loss is required')
+      return
+    }
+    if (!creating.takeProfit) {
+      alert('Take profit is required')
+      return
+    }
+    
     const dateIso = creating.date ? new Date(creating.date).toISOString() : new Date().toISOString()
     // determine result if not explicitly set
     let computedResult = creating.result || 'Open'
@@ -199,7 +233,8 @@ export default function TradeJournal() {
       stopLoss: creating.stopLoss || '',
       takeProfit: creating.takeProfit || '',
       notes: creating.notes || '',
-      images: creating.images || [],
+      entryTime: creating.entryTime || '',
+      exitTime: creating.exitTime || '',
       status: 'open',
       result: computedResult,
       date: dateIso
@@ -210,7 +245,7 @@ export default function TradeJournal() {
       await repository.saveTrade(t)
       // Reload trades from database to get the latest data
       await loadTrades()
-      setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [], date: '', result: 'Open' })
+      setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', date: '', result: 'Open', entryTime: '', exitTime: '' })
       setSelected(t)
       setModalOpen(false)
     } catch (error) {
@@ -365,7 +400,7 @@ export default function TradeJournal() {
     e.target.value = ''
   }
 
-  const [leftWidth, setLeftWidth] = useState(80)
+  const [leftWidth, setLeftWidth] = useState(100)
   const [isDragging, setIsDragging] = useState(false)
   const containerRef = useRef()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -450,7 +485,7 @@ export default function TradeJournal() {
           </button>
         </div>
       )}
-      <div style={{width:isMobile ? '100%' : `${leftWidth}%`,display:isMobile && showMobilePanel !== 'trades' ? 'none' : 'flex',flexDirection:'column',gap:8,margin:0,padding:0}}>
+      <div style={{width:isMobile ? '100%' : selected ? `${leftWidth}%` : '100%',display:isMobile && showMobilePanel !== 'trades' ? 'none' : 'flex',flexDirection:'column',gap:8,margin:0,padding:0}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
             <div style={{fontWeight:700}}>Trades <span style={{fontSize:'12px',color:'#666',fontWeight:'normal'}}>v{packageJson.version}</span></div>
@@ -504,8 +539,8 @@ export default function TradeJournal() {
         </div>
       </div>
 
-      {/* Drag Handle - Hidden on mobile */}
-      {!isMobile && (
+      {/* Drag Handle - Hidden on mobile and when no trade selected */}
+      {!isMobile && selected && (
         <div 
           onMouseDown={handleMouseDown}
           style={{
@@ -530,7 +565,17 @@ export default function TradeJournal() {
         </div>
       )}
 
-      <div style={{width:isMobile ? '100%' : `${100-leftWidth}%`,display:isMobile && showMobilePanel !== 'review' ? 'none' : 'flex',flexDirection:'column'}}>
+      {selected && (
+        <div style={{width:isMobile ? '100%' : `${100-leftWidth}%`,display:isMobile && showMobilePanel !== 'review' ? 'none' : 'flex',flexDirection:'column'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 8px 0 8px'}}>
+          <div style={{fontWeight:700}}>Review & Images</div>
+          <button 
+            onClick={() => setSelected(null)}
+            style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#666',padding:'4px'}}
+          >
+            ✕
+          </button>
+        </div>
         <div style={{flex:1,overflow:'auto',padding:8}}>
           <div style={{marginBottom:12}}>
             {selected && (
@@ -599,7 +644,8 @@ export default function TradeJournal() {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Image Overlay */}
       {imageOverlay && selected && (selected.images || []).length > 0 && (
@@ -644,11 +690,11 @@ export default function TradeJournal() {
       {/* Modal */}
       {modalOpen && (
         <div>
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:50}} onClick={() => setModalOpen(false)} />
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:9998}} onClick={() => setModalOpen(false)} />
           <div
             role="dialog"
             aria-modal="true"
-            style={{position:'fixed',left:modalPos.x,top:modalPos.y,width:520,background:'var(--card)',padding:12,borderRadius:8,boxShadow:'var(--shadow-strong)',zIndex:60}}
+            style={{position:'fixed',left:modalPos.x,top:modalPos.y,width:520,background:'var(--card)',padding:12,borderRadius:8,boxShadow:'var(--shadow-strong)',zIndex:9999}}
           >
             <div onMouseDown={startDrag} style={{cursor:'move',padding:8,display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid var(--muted-overlay)'}}>
               <div style={{fontWeight:700}}>Create New Trade</div>
@@ -658,15 +704,35 @@ export default function TradeJournal() {
             </div>
 
             <div style={{padding:8,display:'flex',flexDirection:'column',gap:8}} onClick={e => e.stopPropagation()}>
-              <input placeholder="Pair (e.g. BTC/USD)" value={creating.pair} onChange={e => setCreating(c => ({ ...c, pair: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc'}} />
+              <div>
+                <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Currency Pair *</label>
+                <select value={creating.pair} onChange={e => setCreating(c => ({ ...c, pair: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}}>
+                  <option value="">Select Pair</option>
+                  {MAJOR_PAIRS.map(pair => (
+                    <option key={pair} value={pair}>{pair}</option>
+                  ))}
+                </select>
+              </div>
               <div style={{display:'flex',gap:8}}>
-                <input placeholder="Entry" value={creating.entryPrice} onChange={e => setCreating(c => ({ ...c, entryPrice: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',flex:1}} />
-                <input placeholder="Exit" value={creating.exitPrice} onChange={e => setCreating(c => ({ ...c, exitPrice: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',flex:1}} />
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Entry Price *</label>
+                  <input type="number" step="any" placeholder="1.2345" value={creating.entryPrice} onChange={e => setCreating(c => ({ ...c, entryPrice: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Exit Price *</label>
+                  <input type="number" step="any" placeholder="1.2400" value={creating.exitPrice} onChange={e => setCreating(c => ({ ...c, exitPrice: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
+                </div>
               </div>
 
               <div style={{display:'flex',gap:8}}>
-                <input placeholder="Initial Stop Loss" value={creating.stopLoss} onChange={e => setCreating(c => ({ ...c, stopLoss: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',flex:1}} />
-                <input placeholder="Initial Take Profit" value={creating.takeProfit} onChange={e => setCreating(c => ({ ...c, takeProfit: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',flex:1}} />
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Stop Loss *</label>
+                  <input type="number" step="any" placeholder="1.2300" value={creating.stopLoss} onChange={e => setCreating(c => ({ ...c, stopLoss: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Take Profit *</label>
+                  <input type="number" step="any" placeholder="1.2500" value={creating.takeProfit} onChange={e => setCreating(c => ({ ...c, takeProfit: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
+                </div>
               </div>
 
               <div style={{display:'flex',gap:8}}>
@@ -685,31 +751,33 @@ export default function TradeJournal() {
                 </div>
               </div>
 
+              <div style={{display:'flex',gap:8}}>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Entry Time</label>
+                  <input type="datetime-local" value={creating.entryTime} onChange={e => setCreating(c => ({ ...c, entryTime: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Exit Time</label>
+                  <input type="datetime-local" value={creating.exitTime} onChange={e => setCreating(c => ({ ...c, exitTime: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
+                </div>
+              </div>
+
               <div>
                 <label style={{fontWeight:700,display:'block',marginBottom:6}}>Notes</label>
                 <WysiwygEditor value={creating.notes || ''} onChange={html => setCreating(c => ({ ...c, notes: html }))} />
               </div>
 
-              <div>
-                <label style={{fontWeight:700,display:'block',marginBottom:6}}>Images</label>
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <input id="modal-files" type="file" accept="image/*" multiple onChange={onModalFilesChange} style={{display:'none'}} />
-                  <button onClick={() => document.getElementById('modal-files') && document.getElementById('modal-files').click()} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>Add Images</button>
-                  <div style={{color:'var(--muted)'}}>{(creating.images || []).length} selected</div>
-                </div>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
-                  {(creating.images || []).map((src, idx) => (
-                    <div key={idx} style={{position:'relative'}}>
-                      <img src={src} alt={`c-${idx}`} style={{width:120,height:80,objectFit:'cover',borderRadius:6}} />
-                      <button onClick={() => removeModalImage(idx)} style={{position:'absolute',top:6,right:6}}>✕</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+
 
               <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
-                <button onClick={() => { setCreating({ pair: '', entryPrice: '', exitPrice: '', notes: '', stopLoss:'', takeProfit:'', images:[], date:'', result:'Open' }); setModalOpen(false) }} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>Cancel</button>
-                <button onClick={createTrade} style={{padding:'6px 12px',background:'#3182ce',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer'}}>Create Trade</button>
+                <button onClick={() => { setCreating({ pair: '', entryPrice: '', exitPrice: '', notes: '', stopLoss:'', takeProfit:'', date:'', result:'Open', entryTime:'', exitTime:'' }); setModalOpen(false) }} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>Cancel</button>
+                <button 
+                  onClick={createTrade} 
+                  disabled={!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit}
+                  style={{padding:'6px 12px',background:(!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit) ? '#ccc' : '#3182ce',color:'#fff',border:'none',borderRadius:'4px',cursor:(!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit) ? 'not-allowed' : 'pointer'}}
+                >
+                  Create Trade
+                </button>
               </div>
             </div>
           </div>

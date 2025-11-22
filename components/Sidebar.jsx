@@ -5,7 +5,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment'
 import HistoryIcon from '@mui/icons-material/History'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
-export default function Sidebar({ open = true, onNavigate }) {
+export default function Sidebar({ open = true, onNavigate, onClose }) {
   const navItems = [
     { label: 'Weekly Dashboard', icon: <DashboardIcon />, view: 'dashboard' },
     { label: 'Weekly Analysis', icon: <TimelineIcon />, view: 'wizard' },
@@ -20,7 +20,10 @@ export default function Sidebar({ open = true, onNavigate }) {
         {navItems.map((item) => (
           <ListItemButton
             key={item.view}
-            onClick={() => onNavigate && onNavigate(item.view)}
+            onClick={() => {
+              onNavigate && onNavigate(item.view)
+              onClose && onClose()
+            }}
             sx={{
               mb: 1,
               borderRadius: '8px',
