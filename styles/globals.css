@@ -1,0 +1,384 @@
+:root{
+  /* Light theme tokens */
+  --bg: #ffffff;
+  --card: #f6f8fb;
+  --muted: #556274;
+  --text: #0f1724;
+  --accent: #2b6ef6;
+  --accent-2: #4f7bff;
+  --on-accent: #ffffff;
+  --success: #0f9d58;
+  --danger: #d23f3f;
+  --warning: #ffb86b;
+  --muted-bg: #f1f4f8;
+  --muted-overlay: rgba(15,23,36,0.02);
+  --overlay: rgba(0,0,0,0.45);
+  --shadow-1: rgba(15,23,36,0.06);
+  --toast-bg: var(--card);
+  --toast-color: var(--text);
+  /* helper tokens for subtle borders/overlays/shadows used across the UI */
+  --border: rgba(15,23,36,0.04);
+  --glass: rgba(255,255,255,0.02);
+  --glass-1: rgba(255,255,255,0.01);
+  --glass-strong: rgba(255,255,255,0.03);
+  --row-hover: rgba(255,255,255,0.015);
+  --shadow-2: rgba(2,6,23,0.06);
+  --shadow-strong: rgba(15,23,36,0.08);
+  /* selection gradients (kept as rgba stops matching accent palette) */
+  --sel-a: rgba(43,110,246,0.08);
+  --sel-b: rgba(43,110,246,0.04);
+  --sel-c: rgba(124,92,255,0.12);
+  --sel-d: rgba(79,123,255,0.06);
+}
+/* ag-Grid theme imports */
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-alpine.css';
+*{box-sizing:border-box}
+html,body,#__next{height:100%}
+.topbar{display:flex;align-items:center;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);} 
+.hamburger{background:transparent;border:0;color:var(--muted);font-size:20px;margin-right:12px;cursor:pointer}
+.brand{font-weight:700;color:var(--accent)}
+.spacer{flex:1}
+.user{background:var(--muted-bg);padding:6px 10px;border-radius:10px;color:var(--muted)}
+.hamburger{background:transparent;border:0;color:var(--muted);font-size:20px;margin-right:12px;cursor:pointer}
+.brand{font-weight:700;color:var(--accent)}
+.sidebar{width:210px;background:var(--card);padding:18px;border-right:1px solid var(--border);transition:width .2s}
+.spacer{flex:1}
+.main-area{display:flex;height:calc(100vh - 56px)}
+.sidebar{width:210px;background:var(--card);padding:18px;border-right:1px solid var(--border);transition:width .2s}
+.sidebar .nav { margin:0; padding:0 }
+.sidebar .nav button { background: transparent }
+.sidebar li{padding:10px 8px;border-radius:8px;margin-bottom:6px;color:var(--muted);cursor:pointer}
+.sidebar li.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:var(--on-accent)}
+.content-area{flex:1;display:flex;flex-direction:column;padding:0;gap:12px}
+.top-pane{flex:1;background:transparent;padding:6px;border-radius:12px;overflow:auto}
+.bottom-pane{height:420px;background:transparent;padding:12px;border-radius:12px}
+.sidebar.closed{width:64px}
+.sidebar ul{list-style:none;padding:0;margin:0}
+.sidebar li{padding:10px 8px;border-radius:8px;margin-bottom:6px;color:var(--muted);cursor:pointer}
+.sidebar li.active{background:linear-gradient(90deg,var(--accent),#4f7bff);color:white}
+.content-area{flex:1;display:flex;flex-direction:column;padding:0;gap:12px}
+.top-pane{flex:1;background:var(--glass);padding:12px;border-radius:12px;overflow:auto}
+.bottom-pane{height:320px;background:var(--glass-1);padding:12px;border-radius:12px}
+.grid-wrapper{width:100%;height:100%}
+.editor-panel{height:100%;display:flex;flex-direction:column}
+.editor-header{display:flex;justify-content:space-between;align-items:center;padding:8px 4px}
+.editor-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted)}
+.price{color:var(--muted);font-size:13px}
+
+/* AG Grid Modern Trading UI Theme */
+.ag-theme-alpine {
+  --ag-background-color: #F5F6FA;
+  --ag-foreground-color: #1E1F26;
+  --ag-header-background-color: #FBFBFD;
+  --ag-header-foreground-color: #1E1F26;
+  --ag-odd-row-background-color: #FFFFFF;
+  --ag-even-row-background-color: #FFFFFF;
+  --ag-row-hover-color: #F5F6FA;
+  --ag-selected-row-background-color: #EEF2FF;
+  --ag-border-color: #E5E7EC;
+  --ag-row-border-color: #E5E7EC;
+}
+
+.ag-theme-alpine .ag-header {
+  background: #FBFBFD !important;
+  border-bottom: 2px solid #E5E7EC !important;
+  box-shadow: none;
+}
+
+.ag-theme-alpine .ag-header-cell {
+  background: #FBFBFD !important;
+  border-right: 1px solid #E5E7EC !important;
+  border-bottom: none !important;
+}
+
+.ag-theme-alpine .ag-header-cell-label {
+  color: #1E1F26 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
+.ag-theme-alpine .ag-row {
+  border-bottom: 1px solid #E5E7EC !important;
+  background: #FFFFFF !important;
+}
+
+.ag-theme-alpine .ag-cell {
+  color: #1E1F26 !important;
+  border-right: 1px solid #E5E7EC !important;
+  font-size: 13px !important;
+  padding: 2px 6px !important;
+  line-height: 1.2 !important;
+}
+
+.ag-theme-alpine .ag-row {
+  height: 28px !important;
+}
+
+.ag-theme-alpine .ag-header-row {
+  height: 32px !important;
+}
+
+.ag-theme-alpine .ag-header-cell {
+  padding: 4px 6px !important;
+}
+
+/* Clean AG Grid root wrapper */
+.ag-theme-alpine .ag-root-wrapper { 
+  border-radius: 0px !important; 
+  overflow: hidden; 
+  box-shadow: none !important; 
+  border: none !important;
+  background: #ffffff !important;
+}
+
+/* Row selection styles */
+.ag-theme-alpine .ag-row-selected { 
+  background: #EEF2FF !important; 
+  border-left: 3px solid #365CFD !important;
+  box-shadow: 0 2px 4px rgba(54,92,253,0.15) !important;
+}
+
+.ag-theme-alpine .ag-row-selected .ag-cell {
+  color: #1E1F26 !important;
+}
+
+.ag-theme-alpine .ag-row-selected:hover {
+  background: #E0E7FF !important;
+}
+
+/* Row hover effects */
+.ag-theme-alpine .ag-row-hover { 
+  background: #F5F6FA !important;
+  transition: all 0.15s ease;
+}
+
+/* Cell focus styles */
+.ag-theme-alpine .ag-cell-focus { 
+  outline: none !important;
+}
+
+/* Body viewport font */
+.ag-theme-alpine .ag-body-viewport { 
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; 
+  font-size: 13px;
+}
+
+/* Cell content styles */
+.ag-theme-alpine .cell-pair { 
+  font-weight: 700; 
+  color: var(--text);
+}
+
+.ag-theme-alpine .cell-bid { 
+  color: var(--success); 
+  font-weight: 700; 
+  text-align: right;
+}
+
+.ag-theme-alpine .cell-ask { 
+  color: var(--danger); 
+  font-weight: 700; 
+  text-align: right;
+}
+
+
+/* Dashboard styles */
+.dashboard { display:flex;flex-direction:column;gap:12px }
+.dashboard-title { margin:0;color:var(--muted);font-weight:700 }
+.dashboard-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px }
+.dashboard-card { background: linear-gradient(180deg, var(--glass), var(--glass-1)); padding:12px;border-radius:10px;border:1px solid var(--glass-1);box-shadow: 0 8px 20px var(--shadow-2);transition:transform .12s,box-shadow .12s;display:flex;flex-direction:column;gap:8px }
+.dashboard-card:hover { transform:translateY(-4px); box-shadow: 0 12px 28px var(--shadow-2) }
+.dashboard-card-header { display:flex;justify-content:space-between;align-items:center }
+.pair-name { font-weight:800;color:var(--text) }
+.pair-price { font-size:12px;color:var(--muted) }
+.dashboard-progress-bar { height:10px;background:var(--muted-bg);border-radius:6px;overflow:hidden }
+.dashboard-progress-fill { height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .4s }
+.dashboard-footer { display:flex;justify-content:space-between;align-items:center }
+.percent-label { font-size:13px }
+.btn-sm { padding:6px 8px;border-radius:6px;border:0;background:var(--muted-bg);color:var(--muted);cursor:pointer }
+.btn-primary { background: linear-gradient(90deg,var(--accent),var(--accent-2));color:var(--on-accent);font-weight:700 }
+.tag { font-size:12px;color:var(--muted) }
+.tag.missing { color: var(--warning) }
+
+/* Responsive tweaks for dashboard */
+@media (max-width: 900px) {
+  .dashboard-grid { grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px }
+  .dashboard-card { padding:10px;border-radius:8px }
+  .pair-name { font-size:14px }
+  .pair-price { font-size:11px }
+}
+
+@media (max-width: 520px) {
+  .dashboard-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px }
+  .dashboard-card { padding:8px }
+  .dashboard-footer { flex-direction:column;align-items:flex-start;gap:6px }
+  .btn-sm { padding:6px 6px;font-size:12px }
+  .dashboard-meta { margin-top:6px }
+}
+
+.dashboard-meta { margin-top:6px; color:var(--muted); font-size:12px }
+.dashboard-card .updated { color:var(--muted); font-size:12px }
+
+/* Design system: buttons, controls, cards, forms */
+.controls { display:flex;gap:8px;align-items:center }
+.toolbar { display:flex;justify-content:space-between;align-items:center;gap:12px }
+.card { background: linear-gradient(180deg, var(--glass), var(--glass-1)); padding:12px;border-radius:10px;border:1px solid var(--glass-1); box-shadow: 0 6px 20px var(--shadow-2) }
+.btn { padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-weight:600;font-size:14px }
+.btn:hover { transform:translateY(-1px) }
+.btn-primary { background: linear-gradient(90deg,var(--accent),var(--accent-2)); color: var(--on-accent); border: none }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted) }
+.btn-sm { padding:6px 8px;border-radius:6px;font-size:13px }
+.input, textarea, select { background: var(--muted-bg); border: 1px solid var(--border); padding:8px 10px; border-radius:8px; color:inherit }
+.form-row { display:flex;gap:8px;align-items:center }
+.panel-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:12px }
+.tabs { display:flex;gap:8px }
+.tab { padding:8px 10px;border-radius:8px;background:transparent;border:1px solid var(--muted-bg);cursor:pointer }
+.tab.active { background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:var(--on-accent) }
+
+/* Modal cleanup */
+.modal-backdrop { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: var(--overlay) }
+.modal { background: var(--card); padding:16px; border-radius:10px; min-width:320px }
+
+/* Pair analysis responsive tweaks */
+.pair-analysis textarea { width:100%; background: var(--muted-bg); border-radius:8px; padding:8px; border:1px solid var(--border); color:inherit }
+.pair-analysis select { padding:8px;border-radius:8px }
+
+/* Typography & spacing polish */
+body { font-size:14px; line-height:1.45 }
+label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px }
+h3 { font-size:16px }
+h4 { font-size:14px }
+.card { padding:14px }
+.panel-header h3 { font-size:16px }
+
+/* Toasts */
+.toasts { position: fixed; right: 20px; bottom: 20px; display:flex;flex-direction:column; gap:8px; z-index:9999 }
+.toast { background: var(--toast-bg); color: var(--toast-color); padding:10px 12px; border-radius:8px; box-shadow: 0 8px 20px var(--shadow-1); min-width:180px }
+.toast.success { border-left: 4px solid var(--success) }
+.toast.info { border-left: 4px solid var(--accent) }
+.toast.hide { opacity:0; transform:translateY(8px); transition: all .25s }
+
+/* Sidebar refinements */
+.sidebar .nav { display:flex;flex-direction:column;gap:6px }
+.sidebar .nav button { text-align:left; width:100%; padding:8px; border-radius:8px; background:transparent; border:0; color:var(--muted) }
+.sidebar .nav button.active { background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:var(--on-accent) }
+
+/* AG Grid gridlines - Excel-like appearance with darker separators */
+.ag-theme-alpine .ag-cell {
+  border-right: 1px solid #cbd5e1 !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+.ag-theme-alpine .ag-row {
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+.ag-theme-alpine .ag-header-cell {
+  border-right: 1px solid #94a3b8 !important;
+  border-bottom: 2px solid #64748b !important;
+}
+
+/* Trade Result Row Highlighting */
+.ag-theme-alpine .trade-win {
+  background: linear-gradient(90deg, #dcfce7, #f0fdf4) !important;
+  border-left: 4px solid #16a34a !important;
+}
+.ag-theme-alpine .trade-loss {
+  background: linear-gradient(90deg, #fef2f2, #fef7f7) !important;
+  border-left: 4px solid #dc2626 !important;
+}
+.ag-theme-alpine .trade-breakeven {
+  background: linear-gradient(90deg, #fefce8, #fffbeb) !important;
+  border-left: 4px solid #eab308 !important;
+}
+.ag-theme-alpine .trade-open {
+  background: linear-gradient(90deg, #f0f9ff, #f8fafc) !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+/* Hover states for trade rows */
+.ag-theme-alpine .trade-win:hover {
+  background: linear-gradient(90deg, #bbf7d0, #dcfce7) !important;
+}
+.ag-theme-alpine .trade-loss:hover {
+  background: linear-gradient(90deg, #fecaca, #fef2f2) !important;
+}
+.ag-theme-alpine .trade-breakeven:hover {
+  background: linear-gradient(90deg, #fde047, #fefce8) !important;
+}
+.ag-theme-alpine .trade-open:hover {
+  background: linear-gradient(90deg, #bae6fd, #f0f9ff) !important;
+}
+
+/* Accessibility - High contrast focus indicators */
+.ag-theme-alpine .ag-cell-focus {
+  outline: 3px solid #365CFD !important;
+  outline-offset: -3px !important;
+  box-shadow: 0 0 0 1px #ffffff !important;
+}
+
+.ag-theme-alpine .ag-header-cell-resize:focus {
+  outline: 2px solid #365CFD !important;
+}
+
+.ag-theme-alpine .ag-row-selected .ag-cell-focus {
+  outline: 3px solid #9173FF !important;
+  outline-offset: -3px !important;
+}
+
+/* Ensure minimum contrast ratios */
+.ag-theme-alpine .ag-cell {
+  color: #1E1F26 !important; /* 4.5:1 contrast ratio */
+}
+
+.ag-theme-alpine .ag-header-cell-label {
+  color: #1E1F26 !important; /* 4.5:1 contrast ratio */
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Cell Renderer Content - Ensure HTML renders properly */
+.ag-theme-alpine .ag-cell span {
+  display: inline !important;
+  color: inherit !important;
+}
+
+/* Override any conflicting cell styles for custom renderers */
+.ag-theme-alpine .ag-cell[data-colid="result"] {
+  overflow: visible !important;
+}
+
+.ag-theme-alpine .ag-cell[data-colid="direction"] {
+  overflow: visible !important;
+}
+
+/* Ensure cell renderer content is not overridden */
+.ag-theme-alpine .ag-cell .ag-cell-value {
+  color: inherit !important;
+}
+
+/* Result cell styling */
+.ag-theme-alpine .result-win {
+  color: #00C48C !important;
+  font-weight: 600 !important;
+}
+
+.ag-theme-alpine .result-loss {
+  color: #FF4D4F !important;
+  font-weight: 600 !important;
+}
+
+.ag-theme-alpine .result-breakeven {
+  color: #A1A7B3 !important;
+  font-weight: 600 !important;
+}
+
+.ag-theme-alpine .result-open {
+  color: #1E1F26 !important;
+  font-weight: 600 !important;
+}
+
+
