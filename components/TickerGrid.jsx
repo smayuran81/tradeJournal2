@@ -23,7 +23,9 @@ export default function TickerGrid({ rowData = [], onSelect }) {
 
   const onSelectionChanged = useCallback((params) => {
     const sel = params.api.getSelectedRows()[0] || null
-    onSelect && onSelect(sel)
+    if (onSelect) {
+      setTimeout(() => onSelect(sel), 0)
+    }
   }, [onSelect])
 
   return (
@@ -36,6 +38,7 @@ export default function TickerGrid({ rowData = [], onSelect }) {
         onSelectionChanged={onSelectionChanged}
         animateRows={false}
         suppressAnimationFrame={true}
+        suppressReactUi={true}
         rowHeight={38}
         headerHeight={36}
         suppressRowClickSelection={false}

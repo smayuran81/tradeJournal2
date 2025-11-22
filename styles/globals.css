@@ -66,28 +66,51 @@ html,body,#__next{height:100%}
 .editor-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted)}
 .price{color:var(--muted);font-size:13px}
 
-/* AG Grid overrides */
+/* AG Grid overrides - Enhanced contrast theme */
 .ag-theme-alpine {
-  --ag-background-color: transparent;
+  --ag-background-color: #f8fafc;
   --ag-foreground-color: var(--text);
-  --ag-header-background-color: var(--muted-bg);
+  --ag-header-background-color: #e2e8f0;
+  --ag-odd-row-background-color: #ffffff;
+  --ag-even-row-background-color: #f1f5f9;
+  --ag-row-hover-color: #e0f2fe;
+  --ag-selected-row-background-color: #dbeafe;
 }
-.ag-theme-alpine .ag-header{background:transparent}
-.ag-theme-alpine .ag-row{background:var(--muted-overlay)}
-.ag-theme-alpine .ag-cell{color:inherit}
+.ag-theme-alpine .ag-header{
+  background: linear-gradient(180deg, #e2e8f0, #cbd5e1);
+  border-bottom: 2px solid #94a3b8;
+}
+.ag-theme-alpine .ag-row{
+  border-bottom: 1px solid #cbd5e1;
+}
+.ag-theme-alpine .ag-row:nth-child(even){
+  background: #f8fafc;
+}
+.ag-theme-alpine .ag-row:nth-child(odd){
+  background: #ffffff;
+}
+.ag-theme-alpine .ag-cell{color:inherit;border-right:1px solid #cbd5e1}
 
 /* Trading-style visual tweaks */
 .ag-theme-alpine {
-.ag-theme-alpine .ag-root-wrapper { border-radius:8px; overflow:hidden; box-shadow: 0 6px 18px var(--shadow-1); border: 1px solid var(--shadow-1); }
+.ag-theme-alpine .ag-root-wrapper { 
+  border-radius:8px; 
+  overflow:hidden; 
+  box-shadow: 0 8px 25px rgba(15,23,36,0.12); 
+  border: 2px solid #cbd5e1;
+  background: #f8fafc;
+}
   --ag-background-color: transparent;
   --ag-foreground-color: #e6eef6;
   --ag-header-background-color: var(--glass);
 }
 .ag-theme-alpine .ag-root-wrapper {
 .ag-theme-alpine .ag-header-cell-label {
-  color: var(--muted);
-  font-weight: 600;
+  color: #475569;
+  font-weight: 700;
   font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
   border-radius: 8px;
   overflow: hidden;
@@ -100,7 +123,11 @@ html,body,#__next{height:100%}
 .ag-theme-alpine .ag-header-cell-label {
   color: var(--muted);
   font-weight: 600;
-.ag-theme-alpine .ag-row-selected { background: linear-gradient(90deg, var(--sel-a), var(--sel-b)) !important; border-left: 3px solid var(--accent); }
+.ag-theme-alpine .ag-row-selected { 
+  background: linear-gradient(90deg, #dbeafe, #bfdbfe) !important; 
+  border-left: 4px solid var(--accent) !important;
+  box-shadow: inset 0 0 0 2px rgba(43,110,246,0.3) !important;
+}
   font-size: 12px;
 }
 .ag-theme-alpine .ag-header-cell {
@@ -110,7 +137,11 @@ html,body,#__next{height:100%}
   border-right: 1px solid var(--muted-overlay);
 }
 }
-.ag-theme-alpine .ag-row-hover { background: var(--row-hover) }
+.ag-theme-alpine .ag-row-hover { 
+  background: #f0f9ff !important;
+  transform: translateX(2px);
+  transition: all 0.15s ease;
+}
 .ag-theme-alpine .ag-row-selected {
   background: linear-gradient(90deg, var(--sel-c), var(--sel-d)) !important;
   border-left: 3px solid var(--accent);
@@ -213,17 +244,49 @@ h4 { font-size:14px }
 .sidebar .nav button { text-align:left; width:100%; padding:8px; border-radius:8px; background:transparent; border:0; color:var(--muted) }
 .sidebar .nav button.active { background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:var(--on-accent) }
 
-/* AG Grid gridlines - Excel-like appearance */
+/* AG Grid gridlines - Excel-like appearance with darker separators */
 .ag-theme-alpine .ag-cell {
-  border-right: 1px solid var(--border) !important;
-  border-bottom: 1px solid var(--border) !important;
+  border-right: 1px solid #cbd5e1 !important;
+  border-bottom: 1px solid #cbd5e1 !important;
 }
 .ag-theme-alpine .ag-row {
-  border-bottom: 1px solid var(--border) !important;
+  border-bottom: 1px solid #cbd5e1 !important;
 }
 .ag-theme-alpine .ag-header-cell {
-  border-right: 1px solid var(--border) !important;
-  border-bottom: 1px solid var(--border) !important;
+  border-right: 1px solid #94a3b8 !important;
+  border-bottom: 2px solid #64748b !important;
+}
+
+/* Trade Result Row Highlighting */
+.ag-theme-alpine .trade-win {
+  background: linear-gradient(90deg, #dcfce7, #f0fdf4) !important;
+  border-left: 4px solid #16a34a !important;
+}
+.ag-theme-alpine .trade-loss {
+  background: linear-gradient(90deg, #fef2f2, #fef7f7) !important;
+  border-left: 4px solid #dc2626 !important;
+}
+.ag-theme-alpine .trade-breakeven {
+  background: linear-gradient(90deg, #fefce8, #fffbeb) !important;
+  border-left: 4px solid #eab308 !important;
+}
+.ag-theme-alpine .trade-open {
+  background: linear-gradient(90deg, #f0f9ff, #f8fafc) !important;
+  border-left: 4px solid #0ea5e9 !important;
+}
+
+/* Hover states for trade rows */
+.ag-theme-alpine .trade-win:hover {
+  background: linear-gradient(90deg, #bbf7d0, #dcfce7) !important;
+}
+.ag-theme-alpine .trade-loss:hover {
+  background: linear-gradient(90deg, #fecaca, #fef2f2) !important;
+}
+.ag-theme-alpine .trade-breakeven:hover {
+  background: linear-gradient(90deg, #fde047, #fefce8) !important;
+}
+.ag-theme-alpine .trade-open:hover {
+  background: linear-gradient(90deg, #bae6fd, #f0f9ff) !important;
 }
 
 

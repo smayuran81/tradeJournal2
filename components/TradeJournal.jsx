@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import { repository } from '../services/repository'
 
 const AgGridReact = dynamic(() => import('ag-grid-react').then(m => m?.AgGridReact || m?.default), { ssr: false, loading: () => <div>Loading grid...</div> })
 import ReviewPanel from './ReviewPanel'
@@ -16,18 +17,26 @@ export default function TradeJournal() {
   const fileInputRef = useRef()
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('trade-journal')
-      const parsed = raw ? JSON.parse(raw) : []
-      setTrades(parsed)
-    } catch (e) { setTrades([]) }
+    loadTrades()
   }, [])
 
-  useEffect(() => {
+  async function loadTrades() {
     try {
-      localStorage.setItem('trade-journal', JSON.stringify(trades))
-    } catch (e) {}
-  }, [trades])
+      const tradesFromDb = await repository.getTrades()
+      console.log('Loaded trades from DB:', tradesFromDb)
+      setTrades(tradesFromDb)
+    } catch (error) {
+      console.error('Failed to load trades:', error)
+      // Fallback to localStorage
+      try {
+        const raw = localStorage.getItem('trade-journal')
+        const parsed = raw ? JSON.parse(raw) : []
+        setTrades(parsed)
+      } catch (e) { setTrades([]) }
+    }
+  }
+
+  // Removed localStorage sync - using MongoDB now
 
   // helper: determine pip unit (common default heuristics)
   function pipUnitFor(pair = '', entryPrice) {
@@ -88,24 +97,76 @@ export default function TradeJournal() {
     }
   }), [trades])
 
-  const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true, minWidth: 80 }), [])
+  const defaultColDef = useMemo(() => ({ 
+    sortable: true, 
+    filter: true, 
+    resizable: true, 
+    minWidth: 80,
+    editable: false
+  }), [])
 
   const columnDefs = useMemo(() => [
-    { field: 'pair', headerName: 'Pair', minWidth: 140, flex: 1 },
-    { field: 'entry', headerName: 'Entry', maxWidth: 120 },
-    { field: 'exit', headerName: 'Exit', maxWidth: 120 },
-    { field: 'stopLossPips', headerName: 'SL (pips)', maxWidth: 120 },
-    { field: 'takeProfitPips', headerName: 'TP (pips)', maxWidth: 120 },
-    { field: 'result', headerName: 'Result', maxWidth: 100 },
-    { field: 'lossAmount', headerName: 'Loss Amt', maxWidth: 120 },
-    { field: 'images', headerName: 'Imgs', maxWidth: 90 },
-    { field: 'tradeDate', headerName: 'Trade Date', maxWidth: 120 },
-    { field: 'date', headerName: 'Created At', maxWidth: 160 }
+    { field: 'pair', headerName: 'Pair', minWidth: 140, flex: 1, editable: true },
+    { field: 'entry', headerName: 'Entry', maxWidth: 120, editable: true, valueParser: params => Number(params.newValue) || params.oldValue },
+    { field: 'exit', headerName: 'Exit', maxWidth: 120, editable: true, valueParser: params => Number(params.newValue) || params.oldValue },
+    { field: 'stopLossPips', headerName: 'SL (pips)', maxWidth: 120, editable: false },
+    { field: 'takeProfitPips', headerName: 'TP (pips)', maxWidth: 120, editable: false },
+    { field: 'result', headerName: 'Result', maxWidth: 100, editable: true, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['Open', 'Win', 'Loss', 'Breakeven'] } },
+    { field: 'lossAmount', headerName: 'Loss Amt', maxWidth: 120, editable: false },
+    { field: 'images', headerName: 'Imgs', maxWidth: 90, editable: false },
+    { field: 'tradeDate', headerName: 'Trade Date', maxWidth: 120, editable: false },
+    { field: 'date', headerName: 'Created At', maxWidth: 160, editable: false }
   ], [])
 
   const onSelectionChanged = useCallback((params) => {
     const sel = params.api.getSelectedRows()[0] || null
     setSelected(sel ? sel.raw : null)
+  }, [])
+
+  const getRowClass = useCallback((params) => {
+    const result = params.data.result
+    switch(result) {
+      case 'Win': return 'trade-win'
+      case 'Loss': return 'trade-loss'
+      case 'Breakeven': return 'trade-breakeven'
+      case 'Open': return 'trade-open'
+      default: return ''
+    }
+  }, [])
+
+  const onCellValueChanged = useCallback(async (params) => {
+    const { data, colDef, newValue, oldValue } = params
+    if (newValue === oldValue) return
+    
+    try {
+      console.log('Cell changed:', colDef.field, 'from', oldValue, 'to', newValue)
+      console.log('Trade ID:', data.raw?.id)
+      console.log('Full trade object:', data.raw)
+      
+      // Create update object with only changed field
+      const updates = {}
+      if (colDef.field === 'pair') updates.pair = newValue
+      if (colDef.field === 'entry') updates.entryPrice = newValue.toString()
+      if (colDef.field === 'exit') updates.exitPrice = newValue.toString()
+      if (colDef.field === 'result') updates.result = newValue
+      
+      console.log('Sending updates:', updates)
+      
+      // Save to database
+      await repository.updateTrade(data.raw.id, updates)
+      
+      // Update local state
+      setTrades(prev => prev.map(t => t.id === data.raw.id ? { ...t, ...updates } : t))
+      
+      console.log('Trade updated successfully')
+    } catch (error) {
+      console.error('Failed to update trade - Full error:', error)
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+      // Revert the change
+      params.node.setDataValue(colDef.field, oldValue)
+      alert(`Failed to update trade: ${error.message}`)
+    }
   }, [])
 
   // Create new trade entry (modal-driven)
@@ -115,7 +176,7 @@ export default function TradeJournal() {
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
 
-  function createTrade() {
+  async function createTrade() {
     const dateIso = creating.date ? new Date(creating.date).toISOString() : new Date().toISOString()
     // determine result if not explicitly set
     let computedResult = creating.result || 'Open'
@@ -141,10 +202,19 @@ export default function TradeJournal() {
       result: computedResult,
       date: dateIso
     }
-    setTrades(prev => [t, ...prev])
-    setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [], date: '', result: 'Open' })
-    setSelected(t)
-    setModalOpen(false)
+    
+    // Save to MongoDB via repository
+    try {
+      await repository.saveTrade(t)
+      // Reload trades from database to get the latest data
+      await loadTrades()
+      setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [], date: '', result: 'Open' })
+      setSelected(t)
+      setModalOpen(false)
+    } catch (error) {
+      console.error('Failed to save trade:', error)
+      alert('Failed to save trade. Please try again.')
+    }
   }
 
   // Drag handlers for modal
@@ -204,11 +274,25 @@ export default function TradeJournal() {
     setSelected(s => ({ ...(s||{}), images: (s.images||[]).filter((_, i) => i !== idx) }))
   }
 
-  function saveReview(payload) {
+  async function saveReview(payload) {
     if (!selected) return
-    setTrades(prev => prev.map(t => t.id === selected.id ? { ...t, review: payload, images: payload.images || t.images || [], status: 'closed', meta: { updatedAt: Date.now() } } : t))
-    // update selected copy
-    setSelected(s => ({ ...(s||{}), review: payload, images: payload.images || s.images || [] }))
+    try {
+      const updates = { 
+        review: payload, 
+        images: payload.images || selected.images || [], 
+        status: 'closed', 
+        updatedAt: new Date()
+      }
+      console.log('Saving review:', payload)
+      await repository.updateTrade(selected.id, updates)
+      // Reload trades to get updated data
+      await loadTrades()
+      // Update selected to show new review
+      setSelected({...selected, ...updates})
+    } catch (error) {
+      console.error('Failed to save review:', error)
+      alert('Failed to save review. Please try again.')
+    }
   }
 
   // small helper to wire file input
@@ -218,9 +302,41 @@ export default function TradeJournal() {
     e.target.value = ''
   }
 
+  const [leftWidth, setLeftWidth] = useState(50)
+  const [isDragging, setIsDragging] = useState(false)
+  const containerRef = useRef()
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true)
+    e.preventDefault()
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging || !containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const newWidth = ((e.clientX - rect.left) / rect.width) * 100
+      setLeftWidth(Math.max(20, Math.min(80, newWidth)))
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
+
   return (
-    <div style={{display:'flex',gap:12,height:'100%'}}>
-      <div style={{width:'50%',display:'flex',flexDirection:'column',gap:8}}>
+    <div ref={containerRef} style={{display:'flex',height:'100%',position:'relative'}}>
+      <div style={{width:`${leftWidth}%`,display:'flex',flexDirection:'column',gap:8,paddingRight:6}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
             <div style={{fontWeight:700}}>Trades</div>
@@ -246,7 +362,11 @@ export default function TradeJournal() {
               columnDefs={columnDefs}
               rowSelection="single"
               onSelectionChanged={onSelectionChanged}
-              animateRows={true}
+              onCellValueChanged={onCellValueChanged}
+              getRowClass={getRowClass}
+              animateRows={false}
+              suppressReactUi={true}
+              stopEditingWhenCellsLoseFocus={true}
             />
           </div>
         </div>
@@ -267,7 +387,31 @@ export default function TradeJournal() {
         </div>
       </div>
 
-      <div style={{flex:1,overflow:'auto'}}>
+      {/* Drag Handle */}
+      <div 
+        onMouseDown={handleMouseDown}
+        style={{
+          width: 8,
+          cursor: 'col-resize',
+          backgroundColor: isDragging ? '#2b6ef6' : '#e2e8f0',
+          transition: 'background-color 0.2s',
+          position: 'relative',
+          zIndex: 10
+        }}
+      >
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 3,
+          height: 30,
+          backgroundColor: isDragging ? '#ffffff' : '#94a3b8',
+          borderRadius: 2
+        }} />
+      </div>
+
+      <div style={{width:`${100-leftWidth}%`,overflow:'auto',paddingLeft:6}}>
         <div style={{padding:8}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div style={{fontWeight:700,marginBottom:8}}>Images</div>
