@@ -415,8 +415,8 @@ export default function TradeJournal() {
   }
 
   return (
-    <div ref={containerRef} style={{display:'flex',height:'100%',position:'relative'}}>
-      <div style={{width:`${leftWidth}%`,display:'flex',flexDirection:'column',gap:8,paddingRight:6}}>
+    <div ref={containerRef} style={{display:'flex',height:'100%',position:'relative',margin:0,padding:0}}>
+      <div style={{width:`${leftWidth}%`,display:'flex',flexDirection:'column',gap:8,margin:0,padding:0}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
             <div style={{fontWeight:700}}>Trades</div>
@@ -494,7 +494,7 @@ export default function TradeJournal() {
         }} />
       </div>
 
-      <div style={{width:`${100-leftWidth}%`,display:'flex',flexDirection:'column',paddingLeft:6}}>
+      <div style={{width:`${100-leftWidth}%`,display:'flex',flexDirection:'column'}}>
         <div style={{flex:1,overflow:'auto',padding:8}}>
           <div style={{marginBottom:12}}>
             {selected && (

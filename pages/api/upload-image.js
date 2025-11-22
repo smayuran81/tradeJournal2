@@ -18,9 +18,9 @@ export default async function handler(req, res) {
     
     // Configure Cloudinary for each request
     cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dd6vtpwer',
-      api_key: process.env.CLOUDINARY_API_KEY || '179617184476631',
-      api_secret: process.env.CLOUDINARY_API_SECRET || 'w0IT-tATI_UYzX1kSbJ6G01SrS0',
+      cloud_name: 'dd6vtpwer',
+      api_key: '179617184476631',
+      api_secret: 'w0IT-tATI_UYzX1kSbJ6G01SrS0',
     })
     
     console.log('Cloudinary config:', {
