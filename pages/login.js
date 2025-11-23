@@ -104,14 +104,7 @@ export default function Login() {
           </button>
         </form>
 
-        <div style={{marginTop:30,padding:20,background:'#f9fafb',borderRadius:8,border:'1px solid #e5e7eb'}}>
-          <h3 style={{margin:'0 0 15px',fontSize:14,fontWeight:600,color:'#374151'}}>Demo Accounts:</h3>
-          <div style={{fontSize:13,color:'#6b7280',lineHeight:1.6}}>
-            <div><strong>admin</strong> / admin123</div>
-            <div><strong>trader1</strong> / trader123</div>
-            <div><strong>demo</strong> / demo123</div>
-          </div>
-        </div>
+
       </div>
     </div>
   )

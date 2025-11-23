@@ -66,61 +66,51 @@ html,body,#__next{height:100%}
 .editor-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted)}
 .price{color:var(--muted);font-size:13px}
 
-/* AG Grid overrides - Professional Excel-like theme */
+/* AG Grid Modern Trading UI Theme */
 .ag-theme-alpine {
-  --ag-background-color: #ffffff;
-  --ag-foreground-color: #1e293b;
-  --ag-header-background-color: #1e40af;
-  --ag-header-foreground-color: #ffffff;
-  --ag-odd-row-background-color: #ffffff;
-  --ag-even-row-background-color: #f8fafc;
-  --ag-row-hover-color: #e0f2fe;
-  --ag-selected-row-background-color: #dbeafe;
-  --ag-border-color: #cbd5e1;
-  --ag-row-border-color: #e2e8f0;
+  --ag-background-color: #F5F6FA;
+  --ag-foreground-color: #1E1F26;
+  --ag-header-background-color: #FBFBFD;
+  --ag-header-foreground-color: #1E1F26;
+  --ag-odd-row-background-color: #FFFFFF;
+  --ag-even-row-background-color: #FFFFFF;
+  --ag-row-hover-color: #F5F6FA;
+  --ag-selected-row-background-color: #EEF2FF;
+  --ag-border-color: #E5E7EC;
+  --ag-row-border-color: #E5E7EC;
 }
 
 .ag-theme-alpine .ag-header {
-  background: linear-gradient(135deg, #1e40af, #3b82f6) !important;
-  border-bottom: 3px solid #1d4ed8 !important;
-  box-shadow: 0 2px 4px rgba(30, 64, 175, 0.1);
+  background: #FBFBFD !important;
+  border-bottom: 2px solid #E5E7EC !important;
+  box-shadow: none;
 }
 
 .ag-theme-alpine .ag-header-cell {
-  background: transparent !important;
-  border-right: 1px solid rgba(255,255,255,0.2) !important;
+  background: #FBFBFD !important;
+  border-right: 1px solid #E5E7EC !important;
   border-bottom: none !important;
 }
 
 .ag-theme-alpine .ag-header-cell-label {
-  color: #ffffff !important;
-  font-weight: 700 !important;
+  color: #1E1F26 !important;
+  font-weight: 600 !important;
   font-size: 13px !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.5px !important;
 }
 
 .ag-theme-alpine .ag-row {
-  border-bottom: 1px solid #e2e8f0 !important;
-}
-
-.ag-theme-alpine .ag-row:nth-child(even) {
-  background: #f8fafc !important;
-}
-
-.ag-theme-alpine .ag-row:nth-child(odd) {
-  background: #ffffff !important;
+  border-bottom: 1px solid #E5E7EC !important;
+  background: #FFFFFF !important;
 }
 
 .ag-theme-alpine .ag-cell {
-  color: #1e293b !important;
-  border-right: 1px solid #e2e8f0 !important;
+  color: #1E1F26 !important;
+  border-right: 1px solid #E5E7EC !important;
   font-size: 13px !important;
   padding: 8px 12px !important;
 }
 
-/* Trading-style visual tweaks */
-.ag-theme-alpine {
+/* Clean AG Grid root wrapper */
 .ag-theme-alpine .ag-root-wrapper { 
   border-radius: 0px !important; 
   overflow: hidden; 
@@ -128,77 +118,56 @@ html,body,#__next{height:100%}
   border: none !important;
   background: #ffffff !important;
 }
-  --ag-background-color: transparent;
-  --ag-foreground-color: #e6eef6;
-  --ag-header-background-color: var(--glass);
-}
-.ag-theme-alpine .ag-root-wrapper {
-.ag-theme-alpine .ag-header-cell-label {
-  color: #475569;
-  font-weight: 700;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 6px 18px var(--shadow-2);
-.ag-theme-alpine .ag-header-cell {
-  background: var(--muted-bg);
-}
-  border: 1px solid var(--glass-1);
-}
-.ag-theme-alpine .ag-header-cell-label {
-  color: var(--muted);
-  font-weight: 600;
+
+/* Row selection styles */
 .ag-theme-alpine .ag-row-selected { 
-  background: linear-gradient(90deg, #3b82f6, #1d4ed8) !important; 
-  color: #ffffff !important;
-  border-left: 4px solid #fbbf24 !important;
-  box-shadow: 0 2px 8px rgba(59,130,246,0.3) !important;
-  font-weight: 600 !important;
-  z-index: 10 !important;
-  position: relative !important;
+  background: #EEF2FF !important; 
+  border-left: 3px solid #365CFD !important;
+  box-shadow: 0 2px 4px rgba(54,92,253,0.15) !important;
 }
+
 .ag-theme-alpine .ag-row-selected .ag-cell {
-  color: #ffffff !important;
-  border-right-color: rgba(255,255,255,0.2) !important;
+  color: #1E1F26 !important;
 }
+
 .ag-theme-alpine .ag-row-selected:hover {
-  background: linear-gradient(90deg, #2563eb, #1e40af) !important;
+  background: #E0E7FF !important;
 }
-  font-size: 12px;
-}
-.ag-theme-alpine .ag-header-cell {
-  background: var(--glass);
-.ag-theme-alpine .ag-cell {
-  padding: 8px 12px;
-  border-right: 1px solid var(--muted-overlay);
-}
-}
+
+/* Row hover effects */
 .ag-theme-alpine .ag-row-hover { 
-  background: #e0f2fe !important;
+  background: #F5F6FA !important;
   transition: all 0.15s ease;
 }
-.ag-theme-alpine .ag-row-selected {
-  background: linear-gradient(90deg, var(--sel-c), var(--sel-d)) !important;
-  border-left: 3px solid var(--accent);
-.ag-theme-alpine .cell-pair { font-weight:700; color: var(--text) }
-.ag-theme-alpine .cell-bid { color: var(--success); font-weight:700; text-align:right }
-.ag-theme-alpine .cell-ask { color: var(--danger); font-weight:700; text-align:right }
+
+/* Cell focus styles */
+.ag-theme-alpine .ag-cell-focus { 
+  outline: none !important;
 }
-.ag-theme-alpine .ag-cell {
-  padding: 8px 12px;
-  border-right: 1px solid var(--glass-1);
-.dashboard-card { background: linear-gradient(180deg, var(--card), var(--bg)); padding:12px;border-radius:10px;border:1px solid var(--border);box-shadow: 0 8px 20px var(--shadow-1);transition:transform .12s,box-shadow .12s;display:flex;flex-direction:column;gap:8px }
+
+/* Body viewport font */
+.ag-theme-alpine .ag-body-viewport { 
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; 
+  font-size: 13px;
 }
-.dashboard-card:hover { transform:translateY(-4px); box-shadow: 0 12px 28px var(--shadow-strong) }
-.ag-theme-alpine .cell-pair { font-weight:700; color: var(--text) }
-.ag-theme-alpine .cell-bid { color: var(--success); font-weight:700; text-align:right }
-.pair-name { font-weight:800;color:var(--text) }
-.ag-theme-alpine .cell-ask { color: var(--danger); font-weight:700; text-align:right }
-.ag-theme-alpine .ag-cell-focus { outline: none }
-.ag-theme-alpine .ag-body-viewport { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; font-size:13px }
+
+/* Cell content styles */
+.ag-theme-alpine .cell-pair { 
+  font-weight: 700; 
+  color: var(--text);
+}
+
+.ag-theme-alpine .cell-bid { 
+  color: var(--success); 
+  font-weight: 700; 
+  text-align: right;
+}
+
+.ag-theme-alpine .cell-ask { 
+  color: var(--danger); 
+  font-weight: 700; 
+  text-align: right;
+}
 
 
 /* Dashboard styles */
@@ -327,10 +296,76 @@ h4 { font-size:14px }
   background: linear-gradient(90deg, #bae6fd, #f0f9ff) !important;
 }
 
+/* Accessibility - High contrast focus indicators */
+.ag-theme-alpine .ag-cell-focus {
+  outline: 3px solid #365CFD !important;
+  outline-offset: -3px !important;
+  box-shadow: 0 0 0 1px #ffffff !important;
+}
+
+.ag-theme-alpine .ag-header-cell-resize:focus {
+  outline: 2px solid #365CFD !important;
+}
+
+.ag-theme-alpine .ag-row-selected .ag-cell-focus {
+  outline: 3px solid #9173FF !important;
+  outline-offset: -3px !important;
+}
+
+/* Ensure minimum contrast ratios */
+.ag-theme-alpine .ag-cell {
+  color: #1E1F26 !important; /* 4.5:1 contrast ratio */
+}
+
+.ag-theme-alpine .ag-header-cell-label {
+  color: #1E1F26 !important; /* 4.5:1 contrast ratio */
+}
+
 /* Loading spinner animation */
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Cell Renderer Content - Ensure HTML renders properly */
+.ag-theme-alpine .ag-cell span {
+  display: inline !important;
+  color: inherit !important;
+}
+
+/* Override any conflicting cell styles for custom renderers */
+.ag-theme-alpine .ag-cell[data-colid="result"] {
+  overflow: visible !important;
+}
+
+.ag-theme-alpine .ag-cell[data-colid="direction"] {
+  overflow: visible !important;
+}
+
+/* Ensure cell renderer content is not overridden */
+.ag-theme-alpine .ag-cell .ag-cell-value {
+  color: inherit !important;
+}
+
+/* Result cell styling */
+.ag-theme-alpine .result-win {
+  color: #00C48C !important;
+  font-weight: 600 !important;
+}
+
+.ag-theme-alpine .result-loss {
+  color: #FF4D4F !important;
+  font-weight: 600 !important;
+}
+
+.ag-theme-alpine .result-breakeven {
+  color: #A1A7B3 !important;
+  font-weight: 600 !important;
+}
+
+.ag-theme-alpine .result-open {
+  color: #1E1F26 !important;
+  font-weight: 600 !important;
 }
 
 

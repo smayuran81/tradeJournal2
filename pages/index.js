@@ -15,8 +15,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
-
-
   useEffect(() => {
     fetch('/api/auth/session')
       .then(res => res.json())

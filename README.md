@@ -15,9 +15,11 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ## 🔐 Demo Login Credentials
 
-- **admin** / admin123
-- **trader1** / trader123  
-- **demo** / demo123
+For testing purposes, use these demo accounts:
+
+- **Username**: `admin` **Password**: `admin123`
+- **Username**: `trader1` **Password**: `trader123`  
+- **Username**: `demo` **Password**: `demo123`
 
 ## 🏗️ Architecture
 

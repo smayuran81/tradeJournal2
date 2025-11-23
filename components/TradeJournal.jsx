@@ -81,35 +81,41 @@ export default function TradeJournal() {
     const exit = t.exitPrice ? Number(t.exitPrice) : null
     const sl = t.stopLoss ? Number(t.stopLoss) : null
     const tp = t.takeProfit ? Number(t.takeProfit) : null
-    const stopLossPips = (entry && sl) ? computePips(t.pair, entry, sl) : ''
-    const takeProfitPips = (entry && tp) ? computePips(t.pair, entry, tp) : ''
-    let result = t.result || 'Open'
-    let lossAmount = ''
-    if (!t.result && exit !== null && entry !== null) {
-      const profit = exit - entry // assume long by default
-      result = profit > 0 ? 'Win' : (profit < 0 ? 'Loss' : 'Breakeven')
-      if (profit < 0) lossAmount = Math.abs(Math.round(profit * 100000) / 100000)
-    } else if (t.result && exit !== null && entry !== null && t.result === 'Loss') {
-      // if stored as loss, compute loss amount for display
-      const profit = exit - entry
-      if (profit < 0) lossAmount = Math.abs(Math.round(profit * 100000) / 100000)
+    
+    // Calculate pips and RR
+    let pipsRR = ''
+    if (entry && exit) {
+      const pips = computePips(t.pair, entry, exit)
+      if (t.rrAchieved) {
+        pipsRR = `${pips} / ${t.rrAchieved}`
+      } else {
+        pipsRR = pips.toString()
+      }
     }
-    const tradeDate = t.date ? new Date(t.date).toISOString().slice(0,10) : ''
-    const completeness = calculateCompleteness(t)
+    
+    let result = t.result || 'Open'
+    // Only auto-compute if no result is set and we have both entry and exit
+    if (!t.result && exit && entry) {
+      const profit = exit - entry
+      result = profit > 0 ? 'Win' : (profit < 0 ? 'Loss' : 'Breakeven')
+    }
+    console.log('Trade result mapping:', { id: t.id, dbResult: t.result, computedResult: result })
+    
+    const tradeDate = t.date ? new Date(t.date).toLocaleDateString() : ''
+    
     return {
       id: t.id,
-      pair: t.pair,
-      entry: t.entryPrice || '',
-      exit: t.exitPrice || '',
-      stopLossPips,
-      takeProfitPips,
-      result,
-      lossAmount,
-      status: t.status || '',
-      date: t.date || '',
       tradeDate,
-      images: (t.images || []).length,
-      completeness,
+      pair: t.pair,
+      direction: t.direction || '',
+      timeframe: t.timeframe || '',
+      setup: t.strategy || '',
+      entryPrice: t.entryPrice || '',
+      stopLoss: t.stopLoss || '',
+      takeProfit: t.takeProfit || '',
+      exitPrice: t.exitPrice || '',
+      result,
+      pipsRR,
       raw: t
     }
   }), [trades])
@@ -123,16 +129,54 @@ export default function TradeJournal() {
   }), [])
 
   const columnDefs = useMemo(() => [
-    { field: 'pair', headerName: 'Pair', minWidth: 140, flex: 1, editable: true },
-    { field: 'entry', headerName: 'Entry', maxWidth: 120, editable: true, valueParser: params => Number(params.newValue) || params.oldValue },
-    { field: 'exit', headerName: 'Exit', maxWidth: 120, editable: true, valueParser: params => Number(params.newValue) || params.oldValue },
-    { field: 'stopLossPips', headerName: 'SL (pips)', maxWidth: 120, editable: false },
-    { field: 'takeProfitPips', headerName: 'TP (pips)', maxWidth: 120, editable: false },
-    { field: 'result', headerName: 'Result', maxWidth: 100, editable: true, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['Open', 'Win', 'Loss', 'Breakeven'] } },
-    { field: 'completeness', headerName: 'Journal %', maxWidth: 110, editable: false, cellRenderer: params => `${params.value}%`, cellStyle: params => ({ color: params.value < 50 ? '#dc2626' : params.value < 80 ? '#f59e0b' : '#16a34a', fontWeight: 600 }) },
-    { field: 'images', headerName: 'Imgs', maxWidth: 90, editable: false },
-    { field: 'tradeDate', headerName: 'Trade Date', maxWidth: 120, editable: false },
-    { field: 'date', headerName: 'Created At', maxWidth: 160, editable: false }
+    { field: 'tradeDate', headerName: 'Date', minWidth: 90, flex: 1, editable: false },
+    { field: 'pair', headerName: 'Pair', minWidth: 80, flex: 1, editable: true },
+    { 
+      field: 'direction', 
+      headerName: 'Trade Direction', 
+      minWidth: 85, 
+      flex: 1, 
+      editable: true, 
+      cellEditor: 'agSelectCellEditor', 
+      cellEditorParams: { values: ['Long', 'Short'] },
+      cellRenderer: params => {
+        const value = params.value || ''
+        const symbol = value === 'Long' ? '↗' : value === 'Short' ? '↘' : ''
+        return `${symbol} ${value}`
+      },
+      cellStyle: params => {
+        const value = params.value
+        return {
+          color: value === 'Long' ? '#00C48C' : value === 'Short' ? '#F95F62' : '#1E1F26',
+          fontWeight: '600'
+        }
+      }
+    },
+    { field: 'timeframe', headerName: 'Timeframe', minWidth: 90, flex: 1, editable: true },
+    { field: 'setup', headerName: 'Setup', minWidth: 100, flex: 1.2, editable: true },
+    { field: 'entryPrice', headerName: 'Entry Price', minWidth: 100, flex: 1.1, editable: true, valueParser: params => Number(params.newValue) || params.oldValue },
+    { field: 'stopLoss', headerName: 'Stop Loss', minWidth: 60, flex: 0.8, editable: true, valueParser: params => Number(params.newValue) || params.oldValue, headerTooltip: 'Stop loss price level' },
+    { field: 'takeProfit', headerName: 'Take Profit', minWidth: 60, flex: 0.8, editable: true, valueParser: params => Number(params.newValue) || params.oldValue, headerTooltip: 'Take profit price level' },
+    { field: 'exitPrice', headerName: 'Exit Price', minWidth: 100, flex: 1.1, editable: true, valueParser: params => Number(params.newValue) || params.oldValue },
+    { 
+      field: 'result', 
+      headerName: 'Trade Result', 
+      minWidth: 80, 
+      flex: 1, 
+      editable: true, 
+      cellEditor: 'agSelectCellEditor', 
+      cellEditorParams: { values: ['Open', 'Win', 'Loss', 'Breakeven'] },
+      valueFormatter: params => {
+        const value = params.value || ''
+        const icon = value === 'Win' ? '▲' : value === 'Loss' ? '▼' : value === 'Breakeven' ? '●' : '○'
+        return `${icon} ${value}`
+      },
+      cellClass: params => {
+        const value = params.value
+        return value === 'Win' ? 'result-win' : value === 'Loss' ? 'result-loss' : value === 'Breakeven' ? 'result-breakeven' : 'result-open'
+      }
+    },
+    { field: 'pipsRR', headerName: 'Pips / Reward Risk Ratio', minWidth: 90, flex: 1, editable: false }
   ], [])
 
   const onSelectionChanged = useCallback((params) => {
@@ -161,14 +205,7 @@ export default function TradeJournal() {
   }, [])
 
   const getRowClass = useCallback((params) => {
-    const result = params.data.result
-    switch(result) {
-      case 'Win': return 'trade-win'
-      case 'Loss': return 'trade-loss'
-      case 'Breakeven': return 'trade-breakeven'
-      case 'Open': return 'trade-open'
-      default: return ''
-    }
+    return 'trading-row'
   }, [])
 
   const onCellValueChanged = useCallback(async (params) => {
@@ -183,8 +220,13 @@ export default function TradeJournal() {
       // Create update object with only changed field
       const updates = {}
       if (colDef.field === 'pair') updates.pair = newValue
-      if (colDef.field === 'entry') updates.entryPrice = newValue.toString()
-      if (colDef.field === 'exit') updates.exitPrice = newValue.toString()
+      if (colDef.field === 'direction') updates.direction = newValue
+      if (colDef.field === 'timeframe') updates.timeframe = newValue
+      if (colDef.field === 'setup') updates.strategy = newValue
+      if (colDef.field === 'entryPrice') updates.entryPrice = newValue.toString()
+      if (colDef.field === 'stopLoss') updates.stopLoss = newValue.toString()
+      if (colDef.field === 'takeProfit') updates.takeProfit = newValue.toString()
+      if (colDef.field === 'exitPrice') updates.exitPrice = newValue.toString()
       if (colDef.field === 'result') updates.result = newValue
       
       console.log('Sending updates:', updates)
@@ -212,7 +254,12 @@ export default function TradeJournal() {
     entryTime: '', exitTime: '', timeframe: '', direction: '', positionSize: '', broker: '',
     strategy: '', trigger: '', trendDirection: '', htfBias: '', supportResistance: '', volatility: '',
     reasonForEntry: '', riskRewardRatio: '', stopLossReason: '', takeProfitReason: '', alignedWithPlan: '',
-    criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false
+    criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false,
+    actualEntryPrice: '', actualStopLoss: '', actualTakeProfit: '', slippage: '', followedPlan: 'Yes', entryTiming: 'On Time', fomoEntry: 'No',
+    rrAchieved: '', pipsGainedLost: '', profitLossAmount: '', timeInTrade: '',
+    whatWentWell: '', whatWentWrong: '', exitAccordingToPlan: 'Yes', earlyExitEmotions: 'No', movedStopTooSoon: 'No', heldTooLong: 'No', marketBehaviorAlignment: 'Yes', wouldTakeAgain: 'Yes', emotionalFactors: [],
+    moodBeforeTrade: '', confidenceLevel: '5', distractionLevel: 'Low', emotionalTriggers: '',
+    thingToImprove: '', followedRules: 'Yes', planUpdateRequired: 'No', mistakePatterns: ''
   })
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTrade, setEditingTrade] = useState(null)
@@ -257,7 +304,7 @@ export default function TradeJournal() {
     } catch (err) {}
 
     const t = {
-      id: Date.now().toString(),
+      id: editingTrade ? editingTrade.id : Date.now().toString(),
       pair: creating.pair || 'UNKN',
       entryPrice: creating.entryPrice || '',
       exitPrice: creating.exitPrice || '',
@@ -286,6 +333,34 @@ export default function TradeJournal() {
       criteriaCheck3: creating.criteriaCheck3 || false,
       criteriaCheck4: creating.criteriaCheck4 || false,
       criteriaCheck5: creating.criteriaCheck5 || false,
+      actualEntryPrice: creating.actualEntryPrice || '',
+      actualStopLoss: creating.actualStopLoss || '',
+      actualTakeProfit: creating.actualTakeProfit || '',
+      slippage: creating.slippage || '',
+      followedPlan: creating.followedPlan || 'Yes',
+      entryTiming: creating.entryTiming || 'On Time',
+      fomoEntry: creating.fomoEntry || 'No',
+      rrAchieved: creating.rrAchieved || '',
+      pipsGainedLost: creating.pipsGainedLost || '',
+      profitLossAmount: creating.profitLossAmount || '',
+      timeInTrade: creating.timeInTrade || '',
+      whatWentWell: creating.whatWentWell || '',
+      whatWentWrong: creating.whatWentWrong || '',
+      exitAccordingToPlan: creating.exitAccordingToPlan || 'Yes',
+      earlyExitEmotions: creating.earlyExitEmotions || 'No',
+      movedStopTooSoon: creating.movedStopTooSoon || 'No',
+      heldTooLong: creating.heldTooLong || 'No',
+      marketBehaviorAlignment: creating.marketBehaviorAlignment || 'Yes',
+      wouldTakeAgain: creating.wouldTakeAgain || 'Yes',
+      emotionalFactors: creating.emotionalFactors || [],
+      moodBeforeTrade: creating.moodBeforeTrade || '',
+      confidenceLevel: creating.confidenceLevel || '5',
+      distractionLevel: creating.distractionLevel || 'Low',
+      emotionalTriggers: creating.emotionalTriggers || '',
+      thingToImprove: creating.thingToImprove || '',
+      followedRules: creating.followedRules || 'Yes',
+      planUpdateRequired: creating.planUpdateRequired || 'No',
+      mistakePatterns: creating.mistakePatterns || '',
       status: 'open',
       result: computedResult,
       date: dateIso
@@ -294,8 +369,10 @@ export default function TradeJournal() {
     // Save to MongoDB via repository
     try {
       if (editingTrade) {
+        console.log('Updating trade with comprehensive data:', t)
         await repository.updateTrade(editingTrade.id, t)
       } else {
+        console.log('Creating new trade with comprehensive data:', t)
         await repository.saveTrade(t)
       }
       // Reload trades from database to get the latest data
@@ -304,6 +381,17 @@ export default function TradeJournal() {
       setEditingTrade(null)
       setSelected(t)
       setModalOpen(false)
+      
+      // Re-select the row in the grid after modal closes
+      setTimeout(() => {
+        if (gridRef.current && gridRef.current.api) {
+          gridRef.current.api.forEachNode(node => {
+            if (node.data.raw.id === t.id) {
+              node.setSelected(true)
+            }
+          })
+        }
+      }, 100)
     } catch (error) {
       console.error('Failed to save trade:', error)
       alert('Failed to save trade. Please try again.')
@@ -476,6 +564,7 @@ export default function TradeJournal() {
   const [isMobile, setIsMobile] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState('trades')
   const [uploadingImages, setUploadingImages] = useState(false)
+  const gridRef = useRef()
 
   const handleMouseDown = (e) => {
     setIsDragging(true)
@@ -554,17 +643,17 @@ export default function TradeJournal() {
         </div>
       )}
       <div style={{width:isMobile ? '100%' : selected ? `${leftWidth}%` : '100%',display:isMobile && showMobilePanel !== 'trades' ? 'none' : 'flex',flexDirection:'column',gap:16,margin:0,padding:20}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,background:'linear-gradient(135deg, #f8fafc, #e2e8f0)',padding:20,borderRadius:12,border:'1px solid #cbd5e1'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,background:'#FBFBFD',padding:20,borderRadius:8,border:'1px solid #E5E7EC'}}>
           <div style={{display:'flex',alignItems:'center',gap:16}}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:32,height:32,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:16,fontWeight:700}}>📊</div>
+              <div style={{width:32,height:32,background:'linear-gradient(90deg, #365CFD 0%, #9173FF 100%)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:16,fontWeight:700}}>📊</div>
               <div>
-                <div style={{fontWeight:700,fontSize:18,color:'#1e293b'}}>Trading Journal</div>
-                <div style={{fontSize:12,color:'#64748b'}}>Professional Trade Management</div>
+                <div style={{fontWeight:700,fontSize:18,color:'#1E1F26'}}>Trading Journal</div>
+                <div style={{fontSize:12,color:'#6B7280'}}>Professional Trade Management</div>
               </div>
             </div>
             <div>
-              <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #cbd5e1',background:'white',fontSize:14}}>
+              <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{padding:'8px 12px',borderRadius:6,border:'1px solid #E5E7EC',background:'#FFFFFF',fontSize:14,color:'#1E1F26'}}>
                 <option value="">All dates</option>
                 {Array.from(new Set(trades.map(t => t.date ? new Date(t.date).toISOString().slice(0,10) : ''))).filter(Boolean).map(d => (
                   <option key={d} value={d}>{d}</option>
@@ -573,22 +662,27 @@ export default function TradeJournal() {
             </div>
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            <button onClick={() => setModalOpen(true)} style={{padding:'10px 20px',background:'linear-gradient(45deg, #10b981, #059669)',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:600,boxShadow:'0 2px 4px rgba(16,185,129,0.2)'}}>+ New Trade</button>
+            <button onClick={() => setModalOpen(true)} style={{padding:'10px 20px',background:'#00C48C',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>+ New Trade</button>
             {selected && (
-              <button onClick={deleteTrade} style={{padding:'10px 20px',background:'linear-gradient(45deg, #ef4444, #dc2626)',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:600,boxShadow:'0 2px 4px rgba(239,68,68,0.2)'}}>Delete Trade</button>
+              <button onClick={deleteTrade} style={{padding:'10px 20px',background:'#FF4D4F',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>Delete Trade</button>
             )}
           </div>
         </div>
 
-        <div style={{flex:1,minHeight:400,background:'white',borderRadius:12,boxShadow:'0 4px 6px rgba(0,0,0,0.05)',border:'1px solid #e2e8f0',overflow:'hidden'}}>
+        <div style={{flex:1,minHeight:400,background:'#FFFFFF',borderRadius:8,border:'1px solid #E5E7EC',overflow:'hidden'}}>
           <div className="grid-wrapper ag-theme-alpine" style={{height:'100%',width:'100%'}}>
             <AgGridReact
+              ref={gridRef}
               rowData={selectedDate ? rowData.filter(r => r.tradeDate === selectedDate) : rowData}
               defaultColDef={defaultColDef}
               columnDefs={columnDefs}
               rowSelection="single"
               onSelectionChanged={onSelectionChanged}
               onCellValueChanged={onCellValueChanged}
+              suppressMenuHide={true}
+              enableCellTextSelection={true}
+              ensureDomOrder={true}
+              ariaLabel="Trading Journal Grid"
               onRowDoubleClicked={params => {
                 const trade = params.data.raw
                 setCreating({
@@ -662,51 +756,51 @@ export default function TradeJournal() {
           </div>
         </div>
 
-        <div style={{minHeight:200,background:'white',borderRadius:12,padding:20,border:'1px solid #e2e8f0'}}>
+        <div style={{minHeight:200,background:'#FFFFFF',borderRadius:8,padding:20,border:'1px solid #E5E7EC'}}>
           {selected ? (
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:32,height:32,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:14,fontWeight:700}}>📈</div>
+                  <div style={{width:32,height:32,background:'#365CFD',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:14,fontWeight:700}}>📈</div>
                   <div>
-                    <div style={{fontWeight:700,fontSize:18,color:'#1e293b'}}>{selected.pair}</div>
-                    <div style={{fontSize:12,color:'#64748b'}}>{selected.direction || 'Unknown'} • {selected.timeframe || 'No timeframe'}</div>
+                    <div style={{fontWeight:700,fontSize:18,color:'#1E1F26'}}>{selected.pair}</div>
+                    <div style={{fontSize:12,color:'#6B7280'}}>{selected.direction || 'Unknown'} • {selected.timeframe || 'No timeframe'}</div>
                   </div>
                 </div>
                 <div style={{textAlign:'right'}}>
-                  <div style={{fontSize:12,fontWeight:600,color:calculateCompleteness(selected) < 50 ? '#dc2626' : calculateCompleteness(selected) < 80 ? '#f59e0b' : '#16a34a'}}>Journal: {calculateCompleteness(selected)}%</div>
-                  <div style={{fontSize:11,color:'#9ca3af'}}>Double-click to edit</div>
+                  <div style={{fontSize:12,fontWeight:600,color:calculateCompleteness(selected) < 50 ? '#FF4D4F' : calculateCompleteness(selected) < 80 ? '#FFB020' : '#00C48C'}}>Journal: {calculateCompleteness(selected)}%</div>
+                  <div style={{fontSize:11,color:'#A1A7B3'}}>Double-click to edit</div>
                 </div>
               </div>
               
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:12,background:'#f8fafc',borderRadius:8}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:12,background:'#F5F6FA',borderRadius:6}}>
                 <div>
-                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>Entry</div>
-                  <div style={{fontSize:14,fontWeight:700,color:'#1e293b'}}>{selected.entryPrice || 'N/A'}</div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#6B7280',marginBottom:2}}>Entry</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1E1F26'}}>{selected.entryPrice || 'N/A'}</div>
                 </div>
                 <div>
-                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>Exit</div>
-                  <div style={{fontSize:14,fontWeight:700,color:'#1e293b'}}>{selected.exitPrice || 'N/A'}</div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#6B7280',marginBottom:2}}>Exit</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1E1F26'}}>{selected.exitPrice || 'N/A'}</div>
                 </div>
                 <div>
-                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>Result</div>
-                  <div style={{fontSize:14,fontWeight:700,color:selected.result === 'Win' ? '#16a34a' : selected.result === 'Loss' ? '#dc2626' : '#64748b'}}>{selected.result || 'Open'}</div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#6B7280',marginBottom:2}}>Result</div>
+                  <div style={{fontSize:14,fontWeight:700,color:selected.result === 'Win' ? '#00C48C' : selected.result === 'Loss' ? '#FF4D4F' : '#A1A7B3'}}>{selected.result || 'Open'}</div>
                 </div>
                 <div>
-                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>RR Achieved</div>
-                  <div style={{fontSize:14,fontWeight:700,color:'#1e293b'}}>{selected.rrAchieved || 'N/A'}</div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#6B7280',marginBottom:2}}>RR Achieved</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1E1F26'}}>{selected.rrAchieved || 'N/A'}</div>
                 </div>
               </div>
               
               {calculateCompleteness(selected) < 70 && (
-                <div style={{padding:12,background:'#fef3c7',borderRadius:8,border:'1px solid #f59e0b'}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'#92400e',marginBottom:4}}>⚠️ Incomplete Journal Entry</div>
-                  <div style={{fontSize:11,color:'#92400e'}}>Add analysis data to improve your trading insights</div>
+                <div style={{padding:12,background:'#FFF7E6',borderRadius:6,border:'1px solid #FFB020'}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'#D46B08',marginBottom:4}}>⚠️ Incomplete Journal Entry</div>
+                  <div style={{fontSize:11,color:'#D46B08'}}>Add analysis data to improve your trading insights</div>
                 </div>
               )}
             </div>
           ) : (
-            <div style={{padding:20,color:'#9ca3af',textAlign:'center',fontStyle:'italic'}}>Select a trade to view details</div>
+            <div style={{padding:20,color:'#A1A7B3',textAlign:'center',fontStyle:'italic'}}>Select a trade to view details</div>
           )}
         </div>
       </div>
@@ -875,7 +969,7 @@ export default function TradeJournal() {
           <div
             role="dialog"
             aria-modal="true"
-            style={{position:'fixed',left:modalPos.x,top:modalPos.y,width:600,background:'white',borderRadius:12,boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',zIndex:9999,border:'1px solid #e2e8f0'}}
+            style={{position:'fixed',inset:20,background:'white',borderRadius:12,boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',zIndex:9999,border:'1px solid #e2e8f0',display:'flex',flexDirection:'column'}}
           >
             {/* Header */}
             <div onMouseDown={startDrag} style={{cursor:'move',padding:'16px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid #e2e8f0',background:'linear-gradient(135deg, #f8fafc, #e2e8f0)',borderRadius:'12px 12px 0 0'}}>
@@ -904,13 +998,13 @@ export default function TradeJournal() {
                 onClick={() => setActiveTab(2)}
                 style={{padding:'8px 12px',background:activeTab === 2 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 2 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 2 ? 600 : 400,color:activeTab === 2 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                3. Pre-Analysis
+                3. Prices
               </button>
               <button 
                 onClick={() => setActiveTab(3)}
                 style={{padding:'8px 12px',background:activeTab === 3 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 3 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 3 ? 600 : 400,color:activeTab === 3 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                4. Prices
+                4. Notes
               </button>
               <button 
                 onClick={() => setActiveTab(4)}
@@ -951,7 +1045,7 @@ export default function TradeJournal() {
             </div>
 
             {/* Tab Content */}
-            <div style={{padding:20,minHeight:400}} onClick={e => e.stopPropagation()}>
+            <div style={{flex:1,padding:20,overflow:'auto'}} onClick={e => e.stopPropagation()}>
               {activeTab === 0 && (
                 <div style={{display:'flex',flexDirection:'column',gap:16}}>
                   <div style={{display:'flex',gap:12}}>

@@ -28,7 +28,7 @@ NEXTAUTH_SECRET=generate-a-random-secret-key
 GITHUB_ID=your-github-client-id
 GITHUB_SECRET=your-github-client-secret
 GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CLIENT_SECRET=your-g-client-secret
 ```
 
 ## 4. Generate NEXTAUTH_SECRET
