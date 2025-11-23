@@ -7,6 +7,7 @@ import { MAJOR_PAIRS } from '../data/pairs'
 const AgGridReact = dynamic(() => import('ag-grid-react').then(m => m?.AgGridReact || m?.default), { ssr: false, loading: () => <div>Loading grid...</div> })
 import ReviewPanel from './ReviewPanel'
 import ImageEditor from './ImageEditor'
+import TradeAnalysis from './TradeAnalysis'
 const WysiwygEditor = dynamic(async () => {
   const m = await import('./WysiwygEditor')
   return m?.default || m
@@ -63,6 +64,17 @@ export default function TradeJournal() {
     return Math.round(raw * 10) / 10
   }
 
+  // Calculate journal completeness
+  function calculateCompleteness(trade) {
+    const fields = [
+      trade.reasonForEntry, trade.riskRewardRatio, trade.stopLossReason, trade.takeProfitReason,
+      trade.actualEntryPrice, trade.rrAchieved, trade.pipsGainedLost, trade.whatWentWell, 
+      trade.whatWentWrong, trade.moodBeforeTrade, trade.thingToImprove
+    ]
+    const completed = fields.filter(f => f && f.toString().trim()).length
+    return Math.round((completed / fields.length) * 100)
+  }
+
   // grid rows come directly from trades, with computed columns
   const rowData = useMemo(() => trades.map(t => {
     const entry = t.entryPrice ? Number(t.entryPrice) : null
@@ -83,6 +95,7 @@ export default function TradeJournal() {
       if (profit < 0) lossAmount = Math.abs(Math.round(profit * 100000) / 100000)
     }
     const tradeDate = t.date ? new Date(t.date).toISOString().slice(0,10) : ''
+    const completeness = calculateCompleteness(t)
     return {
       id: t.id,
       pair: t.pair,
@@ -96,6 +109,7 @@ export default function TradeJournal() {
       date: t.date || '',
       tradeDate,
       images: (t.images || []).length,
+      completeness,
       raw: t
     }
   }), [trades])
@@ -115,7 +129,7 @@ export default function TradeJournal() {
     { field: 'stopLossPips', headerName: 'SL (pips)', maxWidth: 120, editable: false },
     { field: 'takeProfitPips', headerName: 'TP (pips)', maxWidth: 120, editable: false },
     { field: 'result', headerName: 'Result', maxWidth: 100, editable: true, cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['Open', 'Win', 'Loss', 'Breakeven'] } },
-    { field: 'lossAmount', headerName: 'Loss Amt', maxWidth: 120, editable: false },
+    { field: 'completeness', headerName: 'Journal %', maxWidth: 110, editable: false, cellRenderer: params => `${params.value}%`, cellStyle: params => ({ color: params.value < 50 ? '#dc2626' : params.value < 80 ? '#f59e0b' : '#16a34a', fontWeight: 600 }) },
     { field: 'images', headerName: 'Imgs', maxWidth: 90, editable: false },
     { field: 'tradeDate', headerName: 'Trade Date', maxWidth: 120, editable: false },
     { field: 'date', headerName: 'Created At', maxWidth: 160, editable: false }
@@ -124,13 +138,22 @@ export default function TradeJournal() {
   const onSelectionChanged = useCallback((params) => {
     const sel = params.api.getSelectedRows()[0] || null
     const newSelected = sel ? sel.raw : null
+    
+    // Check if trade has meaningful analysis data
+    const hasAnalysisData = newSelected && (
+      newSelected.reasonForEntry || newSelected.whatWentWell || newSelected.whatWentWrong ||
+      newSelected.moodBeforeTrade || newSelected.thingToImprove || newSelected.rrAchieved ||
+      newSelected.notes || newSelected.strategy || newSelected.actualEntryPrice ||
+      (newSelected.images && newSelected.images.length > 0)
+    )
+    
     setSelected(newSelected)
     
-    // Adjust layout when selection changes
+    // Only open sidebar if there's meaningful data to show
     setLeftWidth(prev => {
-      if (newSelected && prev === 100) {
+      if (hasAnalysisData && prev === 100) {
         return 60
-      } else if (!newSelected && prev < 100) {
+      } else if (!hasAnalysisData && prev < 100) {
         return 100
       }
       return prev
@@ -184,10 +207,18 @@ export default function TradeJournal() {
   }, [])
 
   // Create new trade entry (modal-driven)
-  const [creating, setCreating] = useState({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [], entryTime: '', exitTime: '' })
+  const [creating, setCreating] = useState({ 
+    pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [], 
+    entryTime: '', exitTime: '', timeframe: '', direction: '', positionSize: '', broker: '',
+    strategy: '', trigger: '', trendDirection: '', htfBias: '', supportResistance: '', volatility: '',
+    reasonForEntry: '', riskRewardRatio: '', stopLossReason: '', takeProfitReason: '', alignedWithPlan: '',
+    criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false
+  })
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingTrade, setEditingTrade] = useState(null)
   const [modalPos, setModalPos] = useState({ x: 120, y: 80 })
   const [dragging, setDragging] = useState(false)
+  const [activeTab, setActiveTab] = useState(0)
   const dragOffset = useRef({ x: 0, y: 0 })
 
   async function createTrade() {
@@ -235,6 +266,26 @@ export default function TradeJournal() {
       notes: creating.notes || '',
       entryTime: creating.entryTime || '',
       exitTime: creating.exitTime || '',
+      timeframe: creating.timeframe || '',
+      direction: creating.direction || '',
+      positionSize: creating.positionSize || '',
+      broker: creating.broker || '',
+      strategy: creating.strategy || '',
+      trigger: creating.trigger || '',
+      trendDirection: creating.trendDirection || '',
+      htfBias: creating.htfBias || '',
+      supportResistance: creating.supportResistance || '',
+      volatility: creating.volatility || '',
+      reasonForEntry: creating.reasonForEntry || '',
+      riskRewardRatio: creating.riskRewardRatio || '',
+      stopLossReason: creating.stopLossReason || '',
+      takeProfitReason: creating.takeProfitReason || '',
+      alignedWithPlan: creating.alignedWithPlan || '',
+      criteriaCheck1: creating.criteriaCheck1|| false,
+      criteriaCheck2: creating.criteriaCheck2 || false,
+      criteriaCheck3: creating.criteriaCheck3 || false,
+      criteriaCheck4: creating.criteriaCheck4 || false,
+      criteriaCheck5: creating.criteriaCheck5 || false,
       status: 'open',
       result: computedResult,
       date: dateIso
@@ -242,10 +293,15 @@ export default function TradeJournal() {
     
     // Save to MongoDB via repository
     try {
-      await repository.saveTrade(t)
+      if (editingTrade) {
+        await repository.updateTrade(editingTrade.id, t)
+      } else {
+        await repository.saveTrade(t)
+      }
       // Reload trades from database to get the latest data
       await loadTrades()
-      setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', date: '', result: 'Open', entryTime: '', exitTime: '' })
+      setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', date: '', result: 'Open', entryTime: '', exitTime: '', timeframe: '', direction: '', positionSize: '', broker: '', strategy: '', trigger: '', trendDirection: '', htfBias: '', supportResistance: '', volatility: '', reasonForEntry: '', riskRewardRatio: '', stopLossReason: '', takeProfitReason: '', alignedWithPlan: '', criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false, actualEntryPrice: '', actualStopLoss: '', actualTakeProfit: '', slippage: '', followedPlan: 'Yes', entryTiming: 'On Time', fomoEntry: 'No', rrAchieved: '', pipsGainedLost: '', profitLossAmount: '', timeInTrade: '', whatWentWell: '', whatWentWrong: '', exitAccordingToPlan: 'Yes', earlyExitEmotions: 'No', movedStopTooSoon: 'No', heldTooLong: 'No', marketBehaviorAlignment: 'Yes', wouldTakeAgain: 'Yes', emotionalFactors: [], moodBeforeTrade: '', confidenceLevel: '5', distractionLevel: 'Low', emotionalTriggers: '', thingToImprove: '', followedRules: 'Yes', planUpdateRequired: 'No', mistakePatterns: '' })
+      setEditingTrade(null)
       setSelected(t)
       setModalOpen(false)
     } catch (error) {
@@ -533,6 +589,71 @@ export default function TradeJournal() {
               rowSelection="single"
               onSelectionChanged={onSelectionChanged}
               onCellValueChanged={onCellValueChanged}
+              onRowDoubleClicked={params => {
+                const trade = params.data.raw
+                setCreating({
+                  pair: trade.pair || '',
+                  entryPrice: trade.entryPrice || '',
+                  exitPrice: trade.exitPrice || '',
+                  stopLoss: trade.stopLoss || '',
+                  takeProfit: trade.takeProfit || '',
+                  notes: trade.notes || '',
+                  date: trade.date ? new Date(trade.date).toISOString().slice(0,10) : '',
+                  result: trade.result || 'Open',
+                  entryTime: trade.entryTime || '',
+                  exitTime: trade.exitTime || '',
+                  timeframe: trade.timeframe || '',
+                  direction: trade.direction || '',
+                  positionSize: trade.positionSize || '',
+                  broker: trade.broker || '',
+                  strategy: trade.strategy || '',
+                  trigger: trade.trigger || '',
+                  trendDirection: trade.trendDirection || '',
+                  htfBias: trade.htfBias || '',
+                  supportResistance: trade.supportResistance || '',
+                  volatility: trade.volatility || '',
+                  reasonForEntry: trade.reasonForEntry || '',
+                  riskRewardRatio: trade.riskRewardRatio || '',
+                  stopLossReason: trade.stopLossReason || '',
+                  takeProfitReason: trade.takeProfitReason || '',
+                  alignedWithPlan: trade.alignedWithPlan || '',
+                  criteriaCheck1: trade.criteriaCheck1 || false,
+                  criteriaCheck2: trade.criteriaCheck2 || false,
+                  criteriaCheck3: trade.criteriaCheck3 || false,
+                  criteriaCheck4: trade.criteriaCheck4 || false,
+                  criteriaCheck5: trade.criteriaCheck5 || false,
+                  actualEntryPrice: trade.actualEntryPrice || '',
+                  actualStopLoss: trade.actualStopLoss || '',
+                  actualTakeProfit: trade.actualTakeProfit || '',
+                  slippage: trade.slippage || '',
+                  followedPlan: trade.followedPlan || 'Yes',
+                  entryTiming: trade.entryTiming || 'On Time',
+                  fomoEntry: trade.fomoEntry || 'No',
+                  rrAchieved: trade.rrAchieved || '',
+                  pipsGainedLost: trade.pipsGainedLost || '',
+                  profitLossAmount: trade.profitLossAmount || '',
+                  timeInTrade: trade.timeInTrade || '',
+                  whatWentWell: trade.whatWentWell || '',
+                  whatWentWrong: trade.whatWentWrong || '',
+                  exitAccordingToPlan: trade.exitAccordingToPlan || 'Yes',
+                  earlyExitEmotions: trade.earlyExitEmotions || 'No',
+                  movedStopTooSoon: trade.movedStopTooSoon || 'No',
+                  heldTooLong: trade.heldTooLong || 'No',
+                  marketBehaviorAlignment: trade.marketBehaviorAlignment || 'Yes',
+                  wouldTakeAgain: trade.wouldTakeAgain || 'Yes',
+                  emotionalFactors: trade.emotionalFactors || [],
+                  moodBeforeTrade: trade.moodBeforeTrade || '',
+                  confidenceLevel: trade.confidenceLevel || '5',
+                  distractionLevel: trade.distractionLevel || 'Low',
+                  emotionalTriggers: trade.emotionalTriggers || '',
+                  thingToImprove: trade.thingToImprove || '',
+                  followedRules: trade.followedRules || 'Yes',
+                  planUpdateRequired: trade.planUpdateRequired || 'No',
+                  mistakePatterns: trade.mistakePatterns || ''
+                })
+                setEditingTrade(trade)
+                setModalOpen(true)
+              }}
               getRowClass={getRowClass}
               animateRows={false}
               suppressReactUi={true}
@@ -544,18 +665,48 @@ export default function TradeJournal() {
         <div style={{minHeight:200,background:'white',borderRadius:12,padding:20,border:'1px solid #e2e8f0'}}>
           {selected ? (
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{width:24,height:24,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:12,fontWeight:700}}>T</div>
-                <div style={{fontWeight:700,fontSize:16,color:'#1e293b'}}>{selected.pair}</div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:32,height:32,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:14,fontWeight:700}}>📈</div>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:18,color:'#1e293b'}}>{selected.pair}</div>
+                    <div style={{fontSize:12,color:'#64748b'}}>{selected.direction || 'Unknown'} • {selected.timeframe || 'No timeframe'}</div>
+                  </div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:12,fontWeight:600,color:calculateCompleteness(selected) < 50 ? '#dc2626' : calculateCompleteness(selected) < 80 ? '#f59e0b' : '#16a34a'}}>Journal: {calculateCompleteness(selected)}%</div>
+                  <div style={{fontSize:11,color:'#9ca3af'}}>Double-click to edit</div>
+                </div>
               </div>
-              <div style={{fontSize:14,color:'#64748b',marginBottom:8}}>Entry: {selected.entryPrice} • Exit: {selected.exitPrice}</div>
-              <div style={{maxHeight:180,overflow:'auto'}}>
-                <div style={{fontWeight:600,marginBottom:8,color:'#374151'}}>Trade Notes</div>
-                <div dangerouslySetInnerHTML={{__html: selected.notes || selected.review?.html || '<div style="color:#9ca3af;font-style:italic">No notes available</div>'}} />
+              
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,padding:12,background:'#f8fafc',borderRadius:8}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>Entry</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1e293b'}}>{selected.entryPrice || 'N/A'}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>Exit</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1e293b'}}>{selected.exitPrice || 'N/A'}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>Result</div>
+                  <div style={{fontSize:14,fontWeight:700,color:selected.result === 'Win' ? '#16a34a' : selected.result === 'Loss' ? '#dc2626' : '#64748b'}}>{selected.result || 'Open'}</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:2}}>RR Achieved</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'#1e293b'}}>{selected.rrAchieved || 'N/A'}</div>
+                </div>
               </div>
+              
+              {calculateCompleteness(selected) < 70 && (
+                <div style={{padding:12,background:'#fef3c7',borderRadius:8,border:'1px solid #f59e0b'}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'#92400e',marginBottom:4}}>⚠️ Incomplete Journal Entry</div>
+                  <div style={{fontSize:11,color:'#92400e'}}>Add analysis data to improve your trading insights</div>
+                </div>
+              )}
             </div>
           ) : (
-            <div style={{padding:20,color:'#9ca3af',textAlign:'center',fontStyle:'italic'}}>Select a trade to view details and manage images</div>
+            <div style={{padding:20,color:'#9ca3af',textAlign:'center',fontStyle:'italic'}}>Select a trade to view details</div>
           )}
         </div>
       </div>
@@ -586,10 +737,10 @@ export default function TradeJournal() {
         </div>
       )}
 
-      {selected && (
+      {selected && (selected.reasonForEntry || selected.whatWentWell || selected.whatWentWrong || selected.moodBeforeTrade || selected.thingToImprove || selected.rrAchieved || selected.notes || selected.strategy || selected.actualEntryPrice || (selected.images && selected.images.length > 0)) && (
         <div style={{width:isMobile ? '100%' : `${100-leftWidth}%`,display:isMobile && showMobilePanel !== 'review' ? 'none' : 'flex',flexDirection:'column'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 8px 0 8px'}}>
-          <div style={{fontWeight:700}}>Review & Images</div>
+          <div style={{fontWeight:700}}>Analysis & Images</div>
           <button 
             onClick={() => setSelected(null)}
             style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#666',padding:'4px'}}
@@ -601,8 +752,8 @@ export default function TradeJournal() {
           <div style={{marginBottom:12}}>
             {selected && (
               <div>
-                <div style={{fontWeight:700,marginBottom:6}}>Review</div>
-                <ReviewPanel review={selected.review || {}} onSave={saveReview} />
+                <div style={{fontWeight:700,marginBottom:6}}>Trade Analysis</div>
+                <TradeAnalysis trade={selected} />
               </div>
             )}
           </div>
@@ -720,93 +871,692 @@ export default function TradeJournal() {
       {/* Modal */}
       {modalOpen && (
         <div>
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:9998}} onClick={() => setModalOpen(false)} />
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:9998}} onClick={() => setModalOpen(false)} />
           <div
             role="dialog"
             aria-modal="true"
-            style={{position:'fixed',left:modalPos.x,top:modalPos.y,width:520,background:'var(--card)',padding:12,borderRadius:8,boxShadow:'var(--shadow-strong)',zIndex:9999}}
+            style={{position:'fixed',left:modalPos.x,top:modalPos.y,width:600,background:'white',borderRadius:12,boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',zIndex:9999,border:'1px solid #e2e8f0'}}
           >
-            <div onMouseDown={startDrag} style={{cursor:'move',padding:8,display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid var(--muted-overlay)'}}>
-              <div style={{fontWeight:700}}>Create New Trade</div>
-              <div>
-                <button onClick={() => setModalOpen(false)} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>✕</button>
+            {/* Header */}
+            <div onMouseDown={startDrag} style={{cursor:'move',padding:'16px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid #e2e8f0',background:'linear-gradient(135deg, #f8fafc, #e2e8f0)',borderRadius:'12px 12px 0 0'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:24,height:24,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:12,fontWeight:700}}>+</div>
+                <div style={{fontWeight:700,fontSize:16,color:'#1e293b'}}>{editingTrade ? 'Edit Trade' : 'Create New Trade'}</div>
               </div>
+              <button onClick={() => setModalOpen(false)} style={{padding:'6px',background:'transparent',border:'none',borderRadius:'6px',cursor:'pointer',color:'#64748b',fontSize:18}}>✕</button>
             </div>
 
-            <div style={{padding:8,display:'flex',flexDirection:'column',gap:8}} onClick={e => e.stopPropagation()}>
-              <div>
-                <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Currency Pair *</label>
-                <select value={creating.pair} onChange={e => setCreating(c => ({ ...c, pair: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}}>
-                  <option value="">Select Pair</option>
-                  {MAJOR_PAIRS.map(pair => (
-                    <option key={pair} value={pair}>{pair}</option>
-                  ))}
-                </select>
-              </div>
+            {/* Tabs */}
+            <div style={{display:'flex',borderBottom:'1px solid #e2e8f0',background:'#f8fafc',overflowX:'auto'}}>
+              <button 
+                onClick={() => setActiveTab(0)}
+                style={{padding:'8px 12px',background:activeTab === 0 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 0 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 0 ? 600 : 400,color:activeTab === 0 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                1. Trade Details
+              </button>
+              <button 
+                onClick={() => setActiveTab(1)}
+                style={{padding:'8px 12px',background:activeTab === 1 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 1 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 1 ? 600 : 400,color:activeTab === 1 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                2. Strategy
+              </button>
+              <button 
+                onClick={() => setActiveTab(2)}
+                style={{padding:'8px 12px',background:activeTab === 2 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 2 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 2 ? 600 : 400,color:activeTab === 2 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                3. Pre-Analysis
+              </button>
+              <button 
+                onClick={() => setActiveTab(3)}
+                style={{padding:'8px 12px',background:activeTab === 3 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 3 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 3 ? 600 : 400,color:activeTab === 3 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                4. Prices
+              </button>
+              <button 
+                onClick={() => setActiveTab(4)}
+                style={{padding:'8px 12px',background:activeTab === 4 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 4 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 4 ? 600 : 400,color:activeTab === 4 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                5. Notes
+              </button>
+              <button 
+                onClick={() => setActiveTab(5)}
+                style={{padding:'8px 12px',background:activeTab === 5 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 5 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 5 ? 600 : 400,color:activeTab === 5 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                6. Execution
+              </button>
+              <button 
+                onClick={() => setActiveTab(6)}
+                style={{padding:'8px 12px',background:activeTab === 6 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 6 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 6 ? 600 : 400,color:activeTab === 6 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                7. Outcome
+              </button>
+              <button 
+                onClick={() => setActiveTab(7)}
+                style={{padding:'8px 12px',background:activeTab === 7 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 7 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 7 ? 600 : 400,color:activeTab === 7 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                8. Post-Analysis
+              </button>
+              <button 
+                onClick={() => setActiveTab(8)}
+                style={{padding:'8px 12px',background:activeTab === 8 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 8 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 8 ? 600 : 400,color:activeTab === 8 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                9. Psychology
+              </button>
+              <button 
+                onClick={() => setActiveTab(9)}
+                style={{padding:'8px 12px',background:activeTab === 9 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 9 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 9 ? 600 : 400,color:activeTab === 9 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+              >
+                10. Lessons
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div style={{padding:20,minHeight:400}} onClick={e => e.stopPropagation()}>
+              {activeTab === 0 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Currency Pair *</label>
+                      <select value={creating.pair} onChange={e => setCreating(c => ({ ...c, pair: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select Currency Pair</option>
+                        {MAJOR_PAIRS.map(pair => (
+                          <option key={pair} value={pair}>{pair}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Timeframe</label>
+                      <select value={creating.timeframe} onChange={e => setCreating(c => ({ ...c, timeframe: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select Timeframe</option>
+                        <option value="M1">M1 (1 Minute)</option>
+                        <option value="M5">M5 (5 Minutes)</option>
+                        <option value="M15">M15 (15 Minutes)</option>
+                        <option value="M30">M30 (30 Minutes)</option>
+                        <option value="H1">H1 (1 Hour)</option>
+                        <option value="H4">H4 (4 Hours)</option>
+                        <option value="D1">D1 (Daily)</option>
+                        <option value="W1">W1 (Weekly)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Direction</label>
+                      <select value={creating.direction} onChange={e => setCreating(c => ({ ...c, direction: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select Direction</option>
+                        <option value="Long">Long (Buy)</option>
+                        <option value="Short">Short (Sell)</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Position Size</label>
+                      <select value={creating.positionSize} onChange={e => setCreating(c => ({ ...c, positionSize: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select Position Size</option>
+                        <option value="0.01">0.01 (Micro Lot)</option>
+                        <option value="0.1">0.1 (Mini Lot)</option>
+                        <option value="1">1.0 (Standard Lot)</option>
+                        <option value="Custom">Custom Size</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Entry Date & Time</label>
+                      <input type="datetime-local" value={creating.entryTime} onChange={e => setCreating(c => ({ ...c, entryTime: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Exit Date & Time</label>
+                      <input type="datetime-local" value={creating.exitTime} onChange={e => setCreating(c => ({ ...c, exitTime: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Broker (Optional)</label>
+                    <input type="text" placeholder="e.g., IC Markets, OANDA, etc." value={creating.broker} onChange={e => setCreating(c => ({ ...c, broker: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 1 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Trading Strategy</label>
+                      <select value={creating.strategy} onChange={e => setCreating(c => ({ ...c, strategy: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select Strategy</option>
+                        <option value="EMA Crossover">EMA Crossover</option>
+                        <option value="Support/Resistance Breakout">Support/Resistance Breakout</option>
+                        <option value="Trend Following">Trend Following</option>
+                        <option value="Mean Reversion">Mean Reversion</option>
+                        <option value="Breakout & Retest">Breakout & Retest</option>
+                        <option value="Fibonacci Retracement">Fibonacci Retracement</option>
+                        <option value="Price Action">Price Action</option>
+                        <option value="Scalping">Scalping</option>
+                        <option value="Swing Trading">Swing Trading</option>
+                        <option value="News Trading">News Trading</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Entry Trigger</label>
+                      <select value={creating.trigger} onChange={e => setCreating(c => ({ ...c, trigger: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select Trigger</option>
+                        <option value="Close above 10 EMA">Close above 10 EMA</option>
+                        <option value="Close below 10 EMA">Close below 10 EMA</option>
+                        <option value="Bullish Engulfing">Bullish Engulfing</option>
+                        <option value="Bearish Engulfing">Bearish Engulfing</option>
+                        <option value="Hammer/Doji">Hammer/Doji</option>
+                        <option value="Break and Retest">Break and Retest</option>
+                        <option value="Support Bounce">Support Bounce</option>
+                        <option value="Resistance Break">Resistance Break</option>
+                        <option value="Trendline Break">Trendline Break</option>
+                        <option value="Volume Spike">Volume Spike</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Trend Direction</label>
+                      <select value={creating.trendDirection} onChange={e => setCreating(c => ({ ...c, trendDirection: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select Trend</option>
+                        <option value="Strong Uptrend">Strong Uptrend</option>
+                        <option value="Weak Uptrend">Weak Uptrend</option>
+                        <option value="Strong Downtrend">Strong Downtrend</option>
+                        <option value="Weak Downtrend">Weak Downtrend</option>
+                        <option value="Sideways/Choppy">Sideways/Choppy</option>
+                        <option value="Consolidation">Consolidation</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>HTF Bias</label>
+                      <select value={creating.htfBias} onChange={e => setCreating(c => ({ ...c, htfBias: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select HTF Bias</option>
+                        <option value="Bullish">Bullish</option>
+                        <option value="Bearish">Bearish</option>
+                        <option value="Neutral">Neutral</option>
+                        <option value="Mixed Signals">Mixed Signals</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Key Support/Resistance Levels</label>
+                    <input type="text" placeholder="e.g., 1.2350 support, 1.2450 resistance" value={creating.supportResistance} onChange={e => setCreating(c => ({ ...c, supportResistance: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Volatility Conditions</label>
+                    <select value={creating.volatility} onChange={e => setCreating(c => ({ ...c, volatility: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                      <option value="">Select Volatility</option>
+                      <option value="Low Volatility">Low Volatility</option>
+                      <option value="Normal Volatility">Normal Volatility</option>
+                      <option value="High Volatility">High Volatility</option>
+                      <option value="Extreme Volatility">Extreme Volatility</option>
+                      <option value="News Event">News Event</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 2 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Reason for Entry</label>
+                    <textarea 
+                      placeholder="Why did you think this was a good trade? What made you enter?"
+                      value={creating.reasonForEntry} 
+                      onChange={e => setCreating(c => ({ ...c, reasonForEntry: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:80,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+
+                  <div style={{background:'#f8fafc',padding:16,borderRadius:8,border:'1px solid #e2e8f0'}}>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:12}}>Entry Criteria Checklist</label>
+                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,cursor:'pointer'}}>
+                        <input 
+                          type="checkbox" 
+                          checked={creating.criteriaCheck1} 
+                          onChange={e => setCreating(c => ({ ...c, criteriaCheck1: e.target.checked }))}
+                          style={{width:16,height:16}}
+                        />
+                        <span>Trend confirmation (HTF alignment)</span>
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,cursor:'pointer'}}>
+                        <input 
+                          type="checkbox" 
+                          checked={creating.criteriaCheck2} 
+                          onChange={e => setCreating(c => ({ ...c, criteriaCheck2: e.target.checked }))}
+                          style={{width:16,height:16}}
+                        />
+                        <span>Entry signal confirmed</span>
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,cursor:'pointer'}}>
+                        <input 
+                          type="checkbox" 
+                          checked={creating.criteriaCheck3} 
+                          onChange={e => setCreating(c => ({ ...c, criteriaCheck3: e.target.checked }))}
+                          style={{width:16,height:16}}
+                        />
+                        <span>Risk management rules followed</span>
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,cursor:'pointer'}}>
+                        <input 
+                          type="checkbox" 
+                          checked={creating.criteriaCheck4} 
+                          onChange={e => setCreating(c => ({ ...c, criteriaCheck4: e.target.checked }))}
+                          style={{width:16,height:16}}
+                        />
+                        <span>Market conditions favorable</span>
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,cursor:'pointer'}}>
+                        <input 
+                          type="checkbox" 
+                          checked={creating.criteriaCheck5} 
+                          onChange={e => setCreating(c => ({ ...c, criteriaCheck5: e.target.checked }))}
+                          style={{width:16,height:16}}
+                        />
+                        <span>Position size appropriate</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Risk-Reward Ratio</label>
+                      <input type="text" placeholder="e.g., 1:2, 1:3" value={creating.riskRewardRatio} onChange={e => setCreating(c => ({ ...c, riskRewardRatio: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Aligned with Trading Plan?</label>
+                      <select value={creating.alignedWithPlan} onChange={e => setCreating(c => ({ ...c, alignedWithPlan: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="">Select</option>
+                        <option value="Yes">Yes - Fully aligned</option>
+                        <option value="Partially">Partially aligned</option>
+                        <option value="No">No - Deviation from plan</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Stop-Loss Level & Reason</label>
+                    <textarea 
+                      placeholder="Why did you place SL at this level? Technical/fundamental reason?"
+                      value={creating.stopLossReason} 
+                      onChange={e => setCreating(c => ({ ...c, stopLossReason: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:60,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Take-Profit Level & Reason</label>
+                    <textarea 
+                      placeholder="Why did you set TP at this level? Target reasoning?"
+                      value={creating.takeProfitReason} 
+                      onChange={e => setCreating(c => ({ ...c, takeProfitReason: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:60,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 3 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Entry Price *</label>
+                      <input type="number" step="any" placeholder="1.2345" value={creating.entryPrice} onChange={e => setCreating(c => ({ ...c, entryPrice: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Exit Price *</label>
+                      <input type="number" step="any" placeholder="1.2400" value={creating.exitPrice} onChange={e => setCreating(c => ({ ...c, exitPrice: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Stop Loss *</label>
+                      <input type="number" step="any" placeholder="1.2300" value={creating.stopLoss} onChange={e => setCreating(c => ({ ...c, stopLoss: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Take Profit *</label>
+                      <input type="number" step="any" placeholder="1.2500" value={creating.takeProfit} onChange={e => setCreating(c => ({ ...c, takeProfit: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Trade Date</label>
+                      <input type="date" value={creating.date || new Date().toISOString().slice(0,10)} onChange={e => setCreating(c => ({ ...c, date: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Result</label>
+                      <select value={creating.result || 'Open'} onChange={e => setCreating(c => ({ ...c, result: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="Open">Open</option>
+                        <option value="Win">Win</option>
+                        <option value="Loss">Loss</option>
+                        <option value="Breakeven">Breakeven</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 4 && (
+                <div>
+                  <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:8}}>Trade Notes & Analysis</label>
+                  <WysiwygEditor value={creating.notes || ''} onChange={html => setCreating(c => ({ ...c, notes: html }))} />
+                </div>
+              )}
+
+              {activeTab === 5 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{background:'#fef3c7',padding:16,borderRadius:8,border:'1px solid #f59e0b'}}>
+                    <div style={{fontWeight:600,color:'#92400e',marginBottom:8}}>Trade Execution - What Actually Happened</div>
+                    <div style={{fontSize:13,color:'#92400e'}}>Capture the reality vs your plan</div>
+                  </div>
+                  
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Actual Entry Price</label>
+                      <input type="number" step="any" placeholder="Actual entry price" value={creating.actualEntryPrice} onChange={e => setCreating(c => ({ ...c, actualEntryPrice: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Slippage</label>
+                      <input type="text" placeholder="e.g., +2 pips, -1 pip" value={creating.slippage} onChange={e => setCreating(c => ({ ...c, slippage: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Actual Stop-Loss</label>
+                      <input type="number" step="any" placeholder="Actual SL level" value={creating.actualStopLoss} onChange={e => setCreating(c => ({ ...c, actualStopLoss: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Actual Take-Profit</label>
+                      <input type="number" step="any" placeholder="Actual TP level" value={creating.actualTakeProfit} onChange={e => setCreating(c => ({ ...c, actualTakeProfit: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Did you follow your plan?</label>
+                      <select value={creating.followedPlan} onChange={e => setCreating(c => ({ ...c, followedPlan: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="Yes">Yes - Followed exactly</option>
+                        <option value="Partially">Partially followed</option>
+                        <option value="No">No - Deviated from plan</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Entry Timing</label>
+                      <select value={creating.entryTiming} onChange={e => setCreating(c => ({ ...c, entryTiming: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="On Time">On Time</option>
+                        <option value="Early Entry">Early Entry</option>
+                        <option value="Late Entry">Late Entry</option>
+                        <option value="Missed Entry">Missed Entry</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>FOMO Entry?</label>
+                    <select value={creating.fomoEntry} onChange={e => setCreating(c => ({ ...c, fomoEntry: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                      <option value="No">No - Planned entry</option>
+                      <option value="Yes">Yes - Fear of missing out</option>
+                      <option value="Revenge">Revenge trading</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 6 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{background:'#dcfce7',padding:16,borderRadius:8,border:'1px solid #16a34a'}}>
+                    <div style={{fontWeight:600,color:'#15803d',marginBottom:8}}>Outcome Metrics</div>
+                    <div style={{fontSize:13,color:'#15803d'}}>Quantify the results</div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>RR Achieved</label>
+                      <input type="text" placeholder="e.g., 1:2.5, 1:0.8" value={creating.rrAchieved} onChange={e => setCreating(c => ({ ...c, rrAchieved: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Pips Gained/Lost</label>
+                      <input type="text" placeholder="e.g., +25, -15" value={creating.pipsGainedLost} onChange={e => setCreating(c => ({ ...c, pipsGainedLost: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Profit/Loss Amount</label>
+                      <input type="text" placeholder="e.g., +$250, -$100" value={creating.profitLossAmount} onChange={e => setCreating(c => ({ ...c, profitLossAmount: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Time in Trade</label>
+                      <input type="text" placeholder="e.g., 2h 30m, 1 day" value={creating.timeInTrade} onChange={e => setCreating(c => ({ ...c, timeInTrade: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 7 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{background:'#fef3c7',padding:16,borderRadius:8,border:'1px solid #f59e0b'}}>
+                    <div style={{fontWeight:600,color:'#92400e',marginBottom:8}}>Post-Trade Analysis</div>
+                    <div style={{fontSize:13,color:'#92400e'}}>This is where improvement happens</div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>What went well?</label>
+                    <textarea 
+                      placeholder="What aspects of this trade were executed correctly?"
+                      value={creating.whatWentWell} 
+                      onChange={e => setCreating(c => ({ ...c, whatWentWell: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:60,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>What went wrong?</label>
+                    <textarea 
+                      placeholder="What mistakes were made or could be improved?"
+                      value={creating.whatWentWrong} 
+                      onChange={e => setCreating(c => ({ ...c, whatWentWrong: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:60,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Exit according to plan?</label>
+                      <select value={creating.exitAccordingToPlan} onChange={e => setCreating(c => ({ ...c, exitAccordingToPlan: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="Yes">Yes - As planned</option>
+                        <option value="No">No - Deviated</option>
+                        <option value="Partial">Partial exit</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Early exit due to emotions?</label>
+                      <select value={creating.earlyExitEmotions} onChange={e => setCreating(c => ({ ...c, earlyExitEmotions: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="No">No</option>
+                        <option value="Yes">Yes - Fear/Panic</option>
+                        <option value="Greed">Yes - Greed</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Moved stop too soon?</label>
+                      <select value={creating.movedStopTooSoon} onChange={e => setCreating(c => ({ ...c, movedStopTooSoon: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Held too long?</label>
+                      <select value={creating.heldTooLong} onChange={e => setCreating(c => ({ ...c, heldTooLong: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Market behavior align with expectation?</label>
+                      <select value={creating.marketBehaviorAlignment} onChange={e => setCreating(c => ({ ...c, marketBehaviorAlignment: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="Yes">Yes - As expected</option>
+                        <option value="No">No - Unexpected</option>
+                        <option value="Partially">Partially</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Would you take this trade again?</label>
+                      <select value={creating.wouldTakeAgain} onChange={e => setCreating(c => ({ ...c, wouldTakeAgain: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="Yes">Yes - Good setup</option>
+                        <option value="No">No - Poor setup</option>
+                        <option value="Maybe">Maybe - Depends</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Emotional factors present</label>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:8}}>
+                      {['Fear', 'FOMO', 'Revenge', 'Hesitation', 'Overconfidence', 'Impatience'].map(emotion => (
+                        <label key={emotion} style={{display:'flex',alignItems:'center',gap:6,fontSize:14,cursor:'pointer'}}>
+                          <input 
+                            type="checkbox" 
+                            checked={(creating.emotionalFactors || []).includes(emotion)}
+                            onChange={e => {
+                              const factors = creating.emotionalFactors || []
+                              if (e.target.checked) {
+                                setCreating(c => ({ ...c, emotionalFactors: [...factors, emotion] }))
+                              } else {
+                                setCreating(c => ({ ...c, emotionalFactors: factors.filter(f => f !== emotion) }))
+                              }
+                            }}
+                            style={{width:16,height:16}}
+                          />
+                          <span>{emotion}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 8 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{background:'#e0e7ff',padding:16,borderRadius:8,border:'1px solid #6366f1'}}>
+                    <div style={{fontWeight:600,color:'#4338ca',marginBottom:8}}>Psychological State</div>
+                    <div style={{fontSize:13,color:'#4338ca'}}>Document your mental condition</div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Mood before placing the trade</label>
+                    <textarea 
+                      placeholder="How were you feeling before entering this trade?"
+                      value={creating.moodBeforeTrade} 
+                      onChange={e => setCreating(c => ({ ...c, moodBeforeTrade: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:60,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Confidence Level (1-10)</label>
+                      <select value={creating.confidenceLevel} onChange={e => setCreating(c => ({ ...c, confidenceLevel: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                          <option key={num} value={num}>{num} - {num <= 3 ? 'Low' : num <= 7 ? 'Medium' : 'High'}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Distraction Level</label>
+                      <select value={creating.distractionLevel} onChange={e => setCreating(c => ({ ...c, distractionLevel: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="Low">Low - Fully focused</option>
+                        <option value="Medium">Medium - Some distractions</option>
+                        <option value="High">High - Very distracted</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Emotional triggers</label>
+                    <textarea 
+                      placeholder="e.g., losing streak, big win earlier, personal stress, etc."
+                      value={creating.emotionalTriggers} 
+                      onChange={e => setCreating(c => ({ ...c, emotionalTriggers: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:60,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 9 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{background:'#fef2f2',padding:16,borderRadius:8,border:'1px solid #ef4444'}}>
+                    <div style={{fontWeight:600,color:'#dc2626',marginBottom:8}}>Lessons Learned</div>
+                    <div style={{fontSize:13,color:'#dc2626'}}>Every trade should end with clear learning</div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>One thing to improve</label>
+                    <textarea 
+                      placeholder="What is the main thing you need to work on based on this trade?"
+                      value={creating.thingToImprove} 
+                      onChange={e => setCreating(c => ({ ...c, thingToImprove: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:80,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Did I follow my plan or break rules?</label>
+                      <select value={creating.followedRules} onChange={e => setCreating(c => ({ ...c, followedRules: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="Yes">Yes - Followed all rules</option>
+                        <option value="Mostly">Mostly - Minor deviations</option>
+                        <option value="No">No - Broke key rules</option>
+                      </select>
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Update required to trading plan?</label>
+                      <select value={creating.planUpdateRequired} onChange={e => setCreating(c => ({ ...c, planUpdateRequired: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                        <option value="No">No - Plan is good</option>
+                        <option value="Yes">Yes - Need updates</option>
+                        <option value="Maybe">Maybe - Consider changes</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Patterns in mistakes</label>
+                    <textarea 
+                      placeholder="e.g., entering too early, chasing breakouts, moving stops too soon"
+                      value={creating.mistakePatterns} 
+                      onChange={e => setCreating(c => ({ ...c, mistakePatterns: e.target.value }))}
+                      style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,minHeight:60,resize:'vertical',fontFamily:'inherit'}}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{padding:'16px 20px',borderTop:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#f8fafc',borderRadius:'0 0 12px 12px'}}>
+              <div style={{fontSize:12,color:'#64748b'}}>* Required fields</div>
               <div style={{display:'flex',gap:8}}>
-                <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Entry Price *</label>
-                  <input type="number" step="any" placeholder="1.2345" value={creating.entryPrice} onChange={e => setCreating(c => ({ ...c, entryPrice: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
-                </div>
-                <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Exit Price *</label>
-                  <input type="number" step="any" placeholder="1.2400" value={creating.exitPrice} onChange={e => setCreating(c => ({ ...c, exitPrice: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
-                </div>
-              </div>
-
-              <div style={{display:'flex',gap:8}}>
-                <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Stop Loss *</label>
-                  <input type="number" step="any" placeholder="1.2300" value={creating.stopLoss} onChange={e => setCreating(c => ({ ...c, stopLoss: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
-                </div>
-                <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Take Profit *</label>
-                  <input type="number" step="any" placeholder="1.2500" value={creating.takeProfit} onChange={e => setCreating(c => ({ ...c, takeProfit: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
-                </div>
-              </div>
-
-              <div style={{display:'flex',gap:8}}>
-                <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)'}}>Trade Date</label>
-                  <input type="date" value={creating.date || new Date().toISOString().slice(0,10)} onChange={e => setCreating(c => ({ ...c, date: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
-                </div>
-                <div style={{width:160}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)'}}>Result</label>
-                  <select value={creating.result || 'Open'} onChange={e => setCreating(c => ({ ...c, result: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}}>
-                    <option value="Open">Open</option>
-                    <option value="Win">Win</option>
-                    <option value="Loss">Loss</option>
-                    <option value="Breakeven">Breakeven</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{display:'flex',gap:8}}>
-                <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Entry Time</label>
-                  <input type="datetime-local" value={creating.entryTime} onChange={e => setCreating(c => ({ ...c, entryTime: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
-                </div>
-                <div style={{flex:1}}>
-                  <label style={{display:'block',fontSize:12,color:'var(--muted)',marginBottom:4}}>Exit Time</label>
-                  <input type="datetime-local" value={creating.exitTime} onChange={e => setCreating(c => ({ ...c, exitTime: e.target.value }))} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc',width:'100%'}} />
-                </div>
-              </div>
-
-              <div>
-                <label style={{fontWeight:700,display:'block',marginBottom:6}}>Notes</label>
-                <WysiwygEditor value={creating.notes || ''} onChange={html => setCreating(c => ({ ...c, notes: html }))} />
-              </div>
-
-
-
-              <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
-                <button onClick={() => { setCreating({ pair: '', entryPrice: '', exitPrice: '', notes: '', stopLoss:'', takeProfit:'', date:'', result:'Open', entryTime:'', exitTime:'' }); setModalOpen(false) }} style={{padding:'6px 12px',background:'transparent',border:'1px solid #ccc',borderRadius:'4px',cursor:'pointer'}}>Cancel</button>
+                <button onClick={() => { setCreating({ pair: '', entryPrice: '', exitPrice: '', notes: '', stopLoss:'', takeProfit:'', date:'', result:'Open', entryTime:'', exitTime:'', timeframe:'', direction:'', positionSize:'', broker:'', strategy:'', trigger:'', trendDirection:'', htfBias:'', supportResistance:'', volatility:'', reasonForEntry:'', riskRewardRatio:'', stopLossReason:'', takeProfitReason:'', alignedWithPlan:'', criteriaCheck1:false, criteriaCheck2:false, criteriaCheck3:false, criteriaCheck4:false, criteriaCheck5:false, actualEntryPrice:'', actualStopLoss:'', actualTakeProfit:'', slippage:'', followedPlan:'Yes', entryTiming:'On Time', fomoEntry:'No', rrAchieved:'', pipsGainedLost:'', profitLossAmount:'', timeInTrade:'', whatWentWell:'', whatWentWrong:'', exitAccordingToPlan:'Yes', earlyExitEmotions:'No', movedStopTooSoon:'No', heldTooLong:'No', marketBehaviorAlignment:'Yes', wouldTakeAgain:'Yes', emotionalFactors:[], moodBeforeTrade:'', confidenceLevel:'5', distractionLevel:'Low', emotionalTriggers:'', thingToImprove:'', followedRules:'Yes', planUpdateRequired:'No', mistakePatterns:'' }); setEditingTrade(null); setModalOpen(false); setActiveTab(0) }} style={{padding:'10px 20px',background:'transparent',border:'1px solid #d1d5db',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:500}}>Cancel</button>
                 <button 
                   onClick={createTrade} 
                   disabled={!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit}
-                  style={{padding:'6px 12px',background:(!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit) ? '#ccc' : '#3182ce',color:'#fff',border:'none',borderRadius:'4px',cursor:(!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit) ? 'not-allowed' : 'pointer'}}
+                  style={{padding:'10px 20px',background:(!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit) ? '#9ca3af' : 'linear-gradient(45deg, #3b82f6, #1d4ed8)',color:'#fff',border:'none',borderRadius:'8px',cursor:(!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit) ? 'not-allowed' : 'pointer',fontSize:14,fontWeight:600,boxShadow:'0 2px 4px rgba(59,130,246,0.2)'}}
                 >
-                  Create Trade
+                  {editingTrade ? 'Update Trade' : 'Create Trade'}
                 </button>
               </div>
             </div>
