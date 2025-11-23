@@ -66,39 +66,67 @@ html,body,#__next{height:100%}
 .editor-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted)}
 .price{color:var(--muted);font-size:13px}
 
-/* AG Grid overrides - Enhanced contrast theme */
+/* AG Grid overrides - Professional Excel-like theme */
 .ag-theme-alpine {
-  --ag-background-color: #f8fafc;
-  --ag-foreground-color: var(--text);
-  --ag-header-background-color: #e2e8f0;
+  --ag-background-color: #ffffff;
+  --ag-foreground-color: #1e293b;
+  --ag-header-background-color: #1e40af;
+  --ag-header-foreground-color: #ffffff;
   --ag-odd-row-background-color: #ffffff;
-  --ag-even-row-background-color: #f1f5f9;
+  --ag-even-row-background-color: #f8fafc;
   --ag-row-hover-color: #e0f2fe;
   --ag-selected-row-background-color: #dbeafe;
+  --ag-border-color: #cbd5e1;
+  --ag-row-border-color: #e2e8f0;
 }
-.ag-theme-alpine .ag-header{
-  background: linear-gradient(180deg, #e2e8f0, #cbd5e1);
-  border-bottom: 2px solid #94a3b8;
+
+.ag-theme-alpine .ag-header {
+  background: linear-gradient(135deg, #1e40af, #3b82f6) !important;
+  border-bottom: 3px solid #1d4ed8 !important;
+  box-shadow: 0 2px 4px rgba(30, 64, 175, 0.1);
 }
-.ag-theme-alpine .ag-row{
-  border-bottom: 1px solid #cbd5e1;
+
+.ag-theme-alpine .ag-header-cell {
+  background: transparent !important;
+  border-right: 1px solid rgba(255,255,255,0.2) !important;
+  border-bottom: none !important;
 }
-.ag-theme-alpine .ag-row:nth-child(even){
-  background: #f8fafc;
+
+.ag-theme-alpine .ag-header-cell-label {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
 }
-.ag-theme-alpine .ag-row:nth-child(odd){
-  background: #ffffff;
+
+.ag-theme-alpine .ag-row {
+  border-bottom: 1px solid #e2e8f0 !important;
 }
-.ag-theme-alpine .ag-cell{color:inherit;border-right:1px solid #cbd5e1}
+
+.ag-theme-alpine .ag-row:nth-child(even) {
+  background: #f8fafc !important;
+}
+
+.ag-theme-alpine .ag-row:nth-child(odd) {
+  background: #ffffff !important;
+}
+
+.ag-theme-alpine .ag-cell {
+  color: #1e293b !important;
+  border-right: 1px solid #e2e8f0 !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+}
 
 /* Trading-style visual tweaks */
 .ag-theme-alpine {
 .ag-theme-alpine .ag-root-wrapper { 
-  border-radius:8px; 
-  overflow:hidden; 
-  box-shadow: 0 8px 25px rgba(15,23,36,0.12); 
-  border: 2px solid #cbd5e1;
-  background: #f8fafc;
+  border-radius: 0px !important; 
+  overflow: hidden; 
+  box-shadow: none !important; 
+  border: none !important;
+  background: #ffffff !important;
 }
   --ag-background-color: transparent;
   --ag-foreground-color: #e6eef6;
@@ -124,23 +152,20 @@ html,body,#__next{height:100%}
   color: var(--muted);
   font-weight: 600;
 .ag-theme-alpine .ag-row-selected { 
-  background: linear-gradient(90deg, #dc2626, #ef4444) !important; 
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8) !important; 
   color: #ffffff !important;
-  border: 3px solid #fbbf24 !important;
-  box-shadow: 0 0 15px rgba(220,38,38,0.6), inset 0 0 0 2px #ffffff !important;
-  font-weight: 700 !important;
-  transform: scale(1.02) !important;
+  border-left: 4px solid #fbbf24 !important;
+  box-shadow: 0 2px 8px rgba(59,130,246,0.3) !important;
+  font-weight: 600 !important;
   z-index: 10 !important;
   position: relative !important;
 }
 .ag-theme-alpine .ag-row-selected .ag-cell {
   color: #ffffff !important;
-  border-right-color: rgba(255,255,255,0.3) !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+  border-right-color: rgba(255,255,255,0.2) !important;
 }
 .ag-theme-alpine .ag-row-selected:hover {
-  background: linear-gradient(90deg, #b91c1c, #dc2626) !important;
-  transform: scale(1.03) !important;
+  background: linear-gradient(90deg, #2563eb, #1e40af) !important;
 }
   font-size: 12px;
 }
@@ -152,8 +177,7 @@ html,body,#__next{height:100%}
 }
 }
 .ag-theme-alpine .ag-row-hover { 
-  background: #f0f9ff !important;
-  transform: translateX(2px);
+  background: #e0f2fe !important;
   transition: all 0.15s ease;
 }
 .ag-theme-alpine .ag-row-selected {

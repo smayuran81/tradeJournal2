@@ -20,6 +20,18 @@ if (process.env.NODE_ENV === 'development') {
 
 export default async function handler(req, res) {
   try {
+    const sessionCookie = req.cookies.session
+    if (!sessionCookie) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
+    }
+    
+    let session
+    try {
+      session = JSON.parse(sessionCookie)
+    } catch {
+      return res.status(401).json({ success: false, error: 'Invalid session' })
+    }
+    
     const { id } = req.query
     const client = await clientPromise
     const db = client.db('trading')
@@ -34,7 +46,7 @@ export default async function handler(req, res) {
       console.log('Update payload:', JSON.stringify(updates, null, 2))
       
       const result = await collection.updateOne(
-        { id: id },
+        { id: id, userId: session.userId },
         { $set: updates }
       )
       
@@ -48,7 +60,7 @@ export default async function handler(req, res) {
     } else if (req.method === 'DELETE') {
       console.log('Deleting trade with ID:', id)
       
-      const result = await collection.deleteOne({ id: id })
+      const result = await collection.deleteOne({ id: id, userId: session.userId })
       
       console.log('MongoDB delete result:', result)
       

@@ -1,162 +1,65 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import dynamic from 'next/dynamic'
 import { Box, Container, Button, Tabs, Tab } from '@mui/material'
 import Topbar from '../components/Topbar'
 import Sidebar from '../components/Sidebar'
-import WeekControls from '../components/WeekControls'
 import Dashboard from '../components/Dashboard'
-import WeeklyAnalysisWizard from '../components/WeeklyAnalysisWizard'
-import PairAnalysis from '../components/PairAnalysis'
-import JournalHistory from '../components/JournalHistory'
-import AddPairModal from '../components/AddPairModal'
-import PlanForm from '../components/PlanForm'
-import ChecklistPanel from '../components/ChecklistPanel'
-import ReviewPanel from '../components/ReviewPanel'
-import Toasts from '../components/Toast'
-const TradeJournal = dynamic(() => import('../components/TradeJournal'), { ssr: false })
 
 const TickerGrid = dynamic(() => import('../components/TickerGrid'), { ssr: false })
 const EditorPanel = dynamic(() => import('../components/EditorPanel'), { ssr: false })
 
 export default function Home() {
+  const router = useRouter()
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [selected, setSelected] = useState(null)
-  const [weekKey, setWeekKey] = useState(getWeekKey(new Date()))
-  const [pairs, setPairs] = useState([])
-  const [selectedPair, setSelectedPair] = useState(null)
-  const [reviewsByPair, setReviewsByPair] = useState({})
-  const [tab, setTab] = useState(0)
-  
-  const [view, setView] = useState('dashboard')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [toasts, setToasts] = useState([])
 
-  function showToast(message, type = 'success', ms = 3000){
-    const id = Date.now() + Math.random()
-    setToasts(t => [...t, { id, message, type }])
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), ms)
+
+
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.user) {
+          setUser(data.user)
+        } else {
+          router.push('/login')
+        }
+        setLoading(false)
+      })
+  }, [router])
+
+  const handleSignOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/login')
   }
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('weekly-data')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        const week = parsed[weekKey] || {}
-        setPairs(week.pairs || [
-          { pair: 'EUR/USD', bid: '1.0923', ask: '1.0925' },
-          { pair: 'GBP/USD', bid: '1.2531', ask: '1.2534' },
-          { pair: 'USD/JPY', bid: '149.12', ask: '149.15' },
-        ])
-        setReviewsByPair(week.reviews || {})
-      } else {
-        setPairs([
-          { pair: 'EUR/USD', bid: '1.0923', ask: '1.0925' },
-          { pair: 'GBP/USD', bid: '1.2531', ask: '1.2534' },
-          { pair: 'USD/JPY', bid: '149.12', ask: '149.15' },
-        ])
-      }
-    } catch (e) {}
-  }, [weekKey])
+  if (loading) {
+    return (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}>
+        <div>Loading...</div>
+      </div>
+    )
+  }
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('weekly-data')
-      const parsed = raw ? JSON.parse(raw) : {}
-      parsed[weekKey] = { pairs, reviews: reviewsByPair }
-      localStorage.setItem('weekly-data', JSON.stringify(parsed))
-    } catch (e) {}
-  }, [weekKey, pairs, reviewsByPair])
+  if (!user) {
+    return null
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'background.default' }}>
-      <Topbar onToggle={() => setSidebarOpen(s => !s)} userName="Mayuran" weekKey={weekKey} onWeekChange={setWeekKey} onNavigate={(v) => setView(v)} />
+      <Topbar 
+        onToggle={() => setSidebarOpen(s => !s)} 
+        userName={user.name} 
+        userImage={null}
+        onSignOut={handleSignOut}
+        isAdmin={user.username === 'admin'}
+      />
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {sidebarOpen && <Sidebar open={sidebarOpen} onNavigate={(v) => setView(v)} onClose={() => setSidebarOpen(false)} />}
+        {sidebarOpen && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} isAdmin={user.username === 'admin'} />}
         <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-          <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.08)', backgroundColor: 'background.paper' }}>
-            {view !== 'trade-journal' && (
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Button variant="contained" onClick={() => setView('wizard')}>
-                  Start Weekly Analysis
-                </Button>
-                <WeekControls
-                  weekKey={weekKey}
-                  onWeekChange={setWeekKey}
-                  onAddPair={() => setModalOpen(true)}
-                  showAddPair={true}
-                />
-              </Box>
-            )}
-          </Box>
-
-          <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-            {view === 'dashboard' && (
-              <Dashboard pairs={pairs} reviews={reviewsByPair} onOpenPair={(p, t) => { setSelectedPair(p); setTab(t === 'daily' ? 1 : t === 'review' ? 2 : 0); setView('analysis') }} />
-            )}
-            {view === 'trade-journal' && (
-              <Box sx={{ height: '100%' }}>
-                <TradeJournal />
-              </Box>
-            )}
-            {view === 'wizard' && (
-              <WeeklyAnalysisWizard pairs={pairs} onStart={(selected) => { setView('analysis'); setSelectedPair({ pair: selected[0] }); }} onAddPair={() => setModalOpen(true)} />
-            )}
-            {view === 'analysis' && selectedPair && (
-              <PairAnalysis pair={selectedPair.pair} data={reviewsByPair[selectedPair.pair] || {}} onSave={(payload) => {
-                setReviewsByPair(r => ({ ...r, [selectedPair.pair]: { ...(r[selectedPair.pair]||{}), ...payload, meta: { ...(r[selectedPair.pair]?.meta||{}), updatedAt: Date.now() } } }))
-                showToast('Plan saved', 'success')
-              }} />
-            )}
-            {view === 'history' && (
-              <JournalHistory />
-            )}
-
-            {selectedPair && view === 'dashboard' && (
-              <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-                <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 2 }}>
-                  <Tab label="Plan" />
-                  <Tab label="Daily Checklist" />
-                  <Tab label="Weekly Review" />
-                </Tabs>
-
-                <Box sx={{ overflow: 'auto' }}>
-                  {tab === 0 && (
-                    <PlanForm
-                      initial={reviewsByPair[selectedPair.pair]?.plan || {}}
-                      onSave={(plan) => setReviewsByPair(r => ({ ...r, [selectedPair.pair]: { ...(r[selectedPair.pair] || {}), plan, meta: { ...(r[selectedPair.pair]?.meta || {}), updatedAt: Date.now() } } }))}
-                    />
-                  )}
-
-                  {tab === 1 && (
-                    <ChecklistPanel
-                      plan={reviewsByPair[selectedPair.pair]?.plan || {}}
-                      progress={reviewsByPair[selectedPair.pair]?.progress || { daily: {} }}
-                      onToggle={(progress) => setReviewsByPair(r => ({ ...r, [selectedPair.pair]: { ...(r[selectedPair.pair] || {}), progress, meta: { ...(r[selectedPair.pair]?.meta || {}), updatedAt: Date.now() } } }))}
-                    />
-                  )}
-
-                  {tab === 2 && (
-                    <ReviewPanel
-                      review={reviewsByPair[selectedPair.pair]?.review || {}}
-                      onSave={(review) => setReviewsByPair(r => ({ ...r, [selectedPair.pair]: { ...(r[selectedPair.pair] || {}), review, meta: { ...(r[selectedPair.pair]?.meta || {}), updatedAt: Date.now() } } }))}
-                    />
-                  )}
-                </Box>
-              </Box>
-            )}
-          </Box>
-
-          <AddPairModal open={modalOpen} onClose={() => setModalOpen(false)} onAdd={(p) => {
-            const newPair = { ...p, createdAt: Date.now() }
-            setPairs(prev => [newPair, ...prev])
-            setModalOpen(false)
-            setSelectedPair(newPair)
-            setView('analysis')
-            showToast(`${newPair.pair} added`, 'success')
-          }} />
-
-          <Toasts toasts={toasts} />
+          <Dashboard user={user} />
         </Box>
       </Box>
     </Box>

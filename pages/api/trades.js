@@ -20,6 +20,18 @@ if (process.env.NODE_ENV === 'development') {
 
 export default async function handler(req, res) {
   try {
+    const sessionCookie = req.cookies.session
+    if (!sessionCookie) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' })
+    }
+    
+    let session
+    try {
+      session = JSON.parse(sessionCookie)
+    } catch {
+      return res.status(401).json({ success: false, error: 'Invalid session' })
+    }
+    
     console.log('API called:', req.method, req.url)
     console.log('MongoDB URI exists:', !!process.env.MONGODB_URI)
     
@@ -30,6 +42,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const trade = {
         ...req.body,
+        userId: session.userId,
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -38,7 +51,7 @@ export default async function handler(req, res) {
       console.log('MongoDB insert result:', result)
       res.json({ success: true, data: result })
     } else if (req.method === 'GET') {
-      const trades = await collection.find({}).toArray()
+      const trades = await collection.find({ userId: session.userId }).toArray()
       res.json({ success: true, data: trades })
     } else {
       res.status(405).json({ success: false, error: 'Method not allowed' })

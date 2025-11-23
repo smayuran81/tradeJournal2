@@ -13,6 +13,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  const sessionCookie = req.cookies.session
+  if (!sessionCookie) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' })
+  }
+  
+  let session
+  try {
+    session = JSON.parse(sessionCookie)
+  } catch {
+    return res.status(401).json({ success: false, error: 'Invalid session' })
+  }
+
   try {
     const { image, filename } = req.body
     

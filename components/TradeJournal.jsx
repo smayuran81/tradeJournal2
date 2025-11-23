@@ -365,15 +365,23 @@ export default function TradeJournal() {
         status: 'closed', 
         updatedAt: new Date()
       }
-      console.log('Saving review:', payload)
+      console.log('TradeJournal: Saving review for trade ID:', selected.id)
+      console.log('TradeJournal: Review payload:', payload)
+      console.log('TradeJournal: Updates object:', updates)
+      
       await repository.updateTrade(selected.id, updates)
-      // Reload trades to get updated data
-      await loadTrades()
-      // Update selected to show new review
-      setSelected({...selected, ...updates})
+      
+      console.log('TradeJournal: Review saved successfully')
+      
+      // Update local state immediately
+      const updatedTrade = {...selected, ...updates}
+      setTrades(prev => prev.map(t => t.id === selected.id ? updatedTrade : t))
+      setSelected(updatedTrade)
     } catch (error) {
-      console.error('Failed to save review:', error)
-      alert('Failed to save review. Please try again.')
+      console.error('TradeJournal: Failed to save review - Full error:', error)
+      console.error('TradeJournal: Error message:', error.message)
+      console.error('TradeJournal: Error stack:', error.stack)
+      alert(`Failed to save review: ${error.message}`)
     }
   }
 
@@ -489,12 +497,18 @@ export default function TradeJournal() {
           </button>
         </div>
       )}
-      <div style={{width:isMobile ? '100%' : selected ? `${leftWidth}%` : '100%',display:isMobile && showMobilePanel !== 'trades' ? 'none' : 'flex',flexDirection:'column',gap:8,margin:0,padding:0}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <div style={{fontWeight:700}}>Trades <span style={{fontSize:'12px',color:'#666',fontWeight:'normal'}}>v{packageJson.version}</span></div>
+      <div style={{width:isMobile ? '100%' : selected ? `${leftWidth}%` : '100%',display:isMobile && showMobilePanel !== 'trades' ? 'none' : 'flex',flexDirection:'column',gap:16,margin:0,padding:20}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,background:'linear-gradient(135deg, #f8fafc, #e2e8f0)',padding:20,borderRadius:12,border:'1px solid #cbd5e1'}}>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:32,height:32,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:16,fontWeight:700}}>📊</div>
+              <div>
+                <div style={{fontWeight:700,fontSize:18,color:'#1e293b'}}>Trading Journal</div>
+                <div style={{fontSize:12,color:'#64748b'}}>Professional Trade Management</div>
+              </div>
+            </div>
             <div>
-              <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{padding:'6px',borderRadius:'4px',border:'1px solid #ccc'}}>
+              <select value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{padding:'8px 12px',borderRadius:'6px',border:'1px solid #cbd5e1',background:'white',fontSize:14}}>
                 <option value="">All dates</option>
                 {Array.from(new Set(trades.map(t => t.date ? new Date(t.date).toISOString().slice(0,10) : ''))).filter(Boolean).map(d => (
                   <option key={d} value={d}>{d}</option>
@@ -502,15 +516,15 @@ export default function TradeJournal() {
               </select>
             </div>
           </div>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            <button onClick={() => setModalOpen(true)} style={{padding:'6px 12px',background:'#3182ce',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer',fontSize:isMobile ? '12px' : '14px'}}>Create New Trade</button>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <button onClick={() => setModalOpen(true)} style={{padding:'10px 20px',background:'linear-gradient(45deg, #10b981, #059669)',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:600,boxShadow:'0 2px 4px rgba(16,185,129,0.2)'}}>+ New Trade</button>
             {selected && (
-              <button onClick={deleteTrade} style={{padding:'6px 12px',background:'#dc2626',color:'#fff',border:'none',borderRadius:'4px',cursor:'pointer',fontSize:isMobile ? '12px' : '14px'}}>Delete Selected</button>
+              <button onClick={deleteTrade} style={{padding:'10px 20px',background:'linear-gradient(45deg, #ef4444, #dc2626)',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:600,boxShadow:'0 2px 4px rgba(239,68,68,0.2)'}}>Delete Trade</button>
             )}
           </div>
         </div>
 
-        <div style={{flex:1,minHeight:160}}>
+        <div style={{flex:1,minHeight:400,background:'white',borderRadius:12,boxShadow:'0 4px 6px rgba(0,0,0,0.05)',border:'1px solid #e2e8f0',overflow:'hidden'}}>
           <div className="grid-wrapper ag-theme-alpine" style={{height:'100%',width:'100%'}}>
             <AgGridReact
               rowData={selectedDate ? rowData.filter(r => r.tradeDate === selectedDate) : rowData}
@@ -527,18 +541,21 @@ export default function TradeJournal() {
           </div>
         </div>
 
-        <div style={{minHeight:180}}>
+        <div style={{minHeight:200,background:'white',borderRadius:12,padding:20,border:'1px solid #e2e8f0'}}>
           {selected ? (
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              <div style={{fontWeight:700}}>{selected.pair}</div>
-              <div style={{fontSize:13,color:'var(--muted)',marginBottom:8}}>Entry: {selected.entryPrice} • Exit: {selected.exitPrice}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:24,height:24,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:12,fontWeight:700}}>T</div>
+                <div style={{fontWeight:700,fontSize:16,color:'#1e293b'}}>{selected.pair}</div>
+              </div>
+              <div style={{fontSize:14,color:'#64748b',marginBottom:8}}>Entry: {selected.entryPrice} • Exit: {selected.exitPrice}</div>
               <div style={{maxHeight:180,overflow:'auto'}}>
-                <div style={{fontWeight:700,marginBottom:6}}>Notes</div>
-                <div dangerouslySetInnerHTML={{__html: selected.notes || selected.review?.html || '<div style="color:var(--muted)">No notes</div>'}} />
+                <div style={{fontWeight:600,marginBottom:8,color:'#374151'}}>Trade Notes</div>
+                <div dangerouslySetInnerHTML={{__html: selected.notes || selected.review?.html || '<div style="color:#9ca3af;font-style:italic">No notes available</div>'}} />
               </div>
             </div>
           ) : (
-            <div style={{padding:8,color:'var(--muted)'}}>Create or select a trade to view details and images.</div>
+            <div style={{padding:20,color:'#9ca3af',textAlign:'center',fontStyle:'italic'}}>Select a trade to view details and manage images</div>
           )}
         </div>
       </div>
