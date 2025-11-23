@@ -564,6 +564,7 @@ export default function TradeJournal() {
   const [isMobile, setIsMobile] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState('trades')
   const [uploadingImages, setUploadingImages] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
   const gridRef = useRef()
 
   const handleMouseDown = (e) => {
@@ -662,6 +663,12 @@ export default function TradeJournal() {
             </div>
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <button 
+              onClick={() => setDarkMode(!darkMode)} 
+              style={{padding:'8px 12px',background:darkMode ? '#1E293B' : '#F1F5F9',color:darkMode ? '#F8FAFC' : '#1E293B',border:'1px solid #E2E8F0',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:500}}
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
             <button onClick={() => setModalOpen(true)} style={{padding:'10px 20px',background:'#00C48C',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>+ New Trade</button>
             {selected && (
               <button onClick={deleteTrade} style={{padding:'10px 20px',background:'#FF4D4F',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>Delete Trade</button>
@@ -669,7 +676,7 @@ export default function TradeJournal() {
           </div>
         </div>
 
-        <div style={{flex:1,minHeight:400,background:'#FFFFFF',borderRadius:8,border:'1px solid #E5E7EC',overflow:'hidden'}}>
+        <div style={{flex:1,minHeight:0,background:'#FFFFFF',borderRadius:8,border:'1px solid #E5E7EC',overflow:'hidden'}}>
           <div className="grid-wrapper ag-theme-alpine" style={{height:'100%',width:'100%'}}>
             <AgGridReact
               ref={gridRef}
@@ -756,7 +763,7 @@ export default function TradeJournal() {
           </div>
         </div>
 
-        <div style={{minHeight:200,background:'#FFFFFF',borderRadius:8,padding:20,border:'1px solid #E5E7EC'}}>
+        <div style={{background:'#FFFFFF',borderRadius:8,padding:20,border:'1px solid #E5E7EC',marginBottom:20}}>
           {selected ? (
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -963,28 +970,60 @@ export default function TradeJournal() {
       )}
 
       {/* Modal */}
-      {modalOpen && (
+      {modalOpen && (() => {
+        const theme = darkMode ? {
+          bg: 'linear-gradient(145deg, #2D3748 0%, #1A202C 100%)',
+          headerBg: 'linear-gradient(135deg, #374151 0%, #2D3748 100%)',
+          tabsBg: 'rgba(0,0,0,0.15)',
+          contentBg: 'linear-gradient(145deg, #2D3748 0%, #374151 100%)',
+          footerBg: 'linear-gradient(135deg, #374151 0%, #2D3748 100%)',
+          border: 'rgba(255,255,255,0.15)',
+          text: '#E2E8F0',
+          subText: '#A0AEC0',
+          tabActive: 'linear-gradient(135deg, #4299E1, #3182CE)',
+          tabText: '#A0AEC0',
+          accent: 'linear-gradient(45deg, #4299E1, #3182CE)',
+          shadow: '0 25px 50px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.08)'
+        } : {
+          bg: 'linear-gradient(145deg, #F8FAFC 0%, #F1F5F9 100%)',
+          headerBg: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
+          tabsBg: '#F8FAFC',
+          contentBg: 'linear-gradient(145deg, #FFFFFF 0%, #F8FAFC 100%)',
+          footerBg: 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)',
+          border: '#E2E8F0',
+          text: '#1E293B',
+          subText: '#64748B',
+          tabActive: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+          tabText: '#64748B',
+          accent: 'linear-gradient(45deg, #3B82F6, #1D4ED8)',
+          shadow: '0 25px 50px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)'
+        }
+        
+        return (
         <div>
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:9998}} onClick={() => setModalOpen(false)} />
           <div
             role="dialog"
             aria-modal="true"
-            style={{position:'fixed',inset:20,background:'white',borderRadius:12,boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',zIndex:9999,border:'1px solid #e2e8f0',display:'flex',flexDirection:'column'}}
+            style={{position:'fixed',inset:20,background:theme.bg,borderRadius:16,boxShadow:theme.shadow,zIndex:9999,border:`1px solid ${theme.border}`,display:'flex',flexDirection:'column'}}
           >
             {/* Header */}
-            <div onMouseDown={startDrag} style={{cursor:'move',padding:'16px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid #e2e8f0',background:'linear-gradient(135deg, #f8fafc, #e2e8f0)',borderRadius:'12px 12px 0 0'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{width:24,height:24,background:'linear-gradient(45deg, #3b82f6, #1d4ed8)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:12,fontWeight:700}}>+</div>
-                <div style={{fontWeight:700,fontSize:16,color:'#1e293b'}}>{editingTrade ? 'Edit Trade' : 'Create New Trade'}</div>
+            <div onMouseDown={startDrag} style={{cursor:'move',padding:'20px 24px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:`1px solid ${theme.border}`,background:theme.headerBg,borderRadius:'16px 16px 0 0'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:32,height:32,background:theme.accent,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:16,fontWeight:700,boxShadow:darkMode ? '0 4px 12px rgba(66,153,225,0.3)' : '0 4px 12px rgba(59,130,246,0.3)'}}>📊</div>
+                <div>
+                  <div style={{fontWeight:700,fontSize:18,color:theme.text,marginBottom:2}}>{editingTrade ? 'Edit Trade Entry' : 'New Trade Entry'}</div>
+                  <div style={{fontSize:12,color:theme.subText}}>Professional Trading Journal</div>
+                </div>
               </div>
-              <button onClick={() => setModalOpen(false)} style={{padding:'6px',background:'transparent',border:'none',borderRadius:'6px',cursor:'pointer',color:'#64748b',fontSize:18}}>✕</button>
+              <button onClick={() => setModalOpen(false)} style={{padding:'8px',background:darkMode ? 'rgba(255,255,255,0.1)' : '#F1F5F9',border:'none',borderRadius:'8px',cursor:'pointer',color:theme.subText,fontSize:18,transition:'all 0.2s'}}>✕</button>
             </div>
 
             {/* Tabs */}
-            <div style={{display:'flex',borderBottom:'1px solid #e2e8f0',background:'#f8fafc',overflowX:'auto'}}>
+            <div style={{display:'flex',borderBottom:`1px solid ${theme.border}`,background:theme.tabsBg,overflowX:'auto',padding:'0 8px'}}>
               <button 
                 onClick={() => setActiveTab(0)}
-                style={{padding:'8px 12px',background:activeTab === 0 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 0 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 0 ? 600 : 400,color:activeTab === 0 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+                style={{padding:'12px 16px',background:activeTab === 0 ? theme.tabActive : 'transparent',border:'none',borderBottom:activeTab === 0 ? `3px solid ${darkMode ? '#4299E1' : '#3B82F6'}` : '3px solid transparent',cursor:'pointer',fontWeight:activeTab === 0 ? 600 : 500,color:activeTab === 0 ? '#FFFFFF' : theme.tabText,fontSize:13,whiteSpace:'nowrap',borderRadius:'8px 8px 0 0',margin:'4px 2px 0',transition:'all 0.2s'}}
               >
                 1. Trade Details
               </button>
@@ -1045,7 +1084,7 @@ export default function TradeJournal() {
             </div>
 
             {/* Tab Content */}
-            <div style={{flex:1,padding:20,overflow:'auto'}} onClick={e => e.stopPropagation()}>
+            <div style={{flex:1,padding:24,overflow:'auto',background:theme.contentBg}} onClick={e => e.stopPropagation()}>
               {activeTab === 0 && (
                 <div style={{display:'flex',flexDirection:'column',gap:16}}>
                   <div style={{display:'flex',gap:12}}>
@@ -1641,8 +1680,8 @@ export default function TradeJournal() {
             </div>
 
             {/* Footer */}
-            <div style={{padding:'16px 20px',borderTop:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#f8fafc',borderRadius:'0 0 12px 12px'}}>
-              <div style={{fontSize:12,color:'#64748b'}}>* Required fields</div>
+            <div style={{padding:'20px 24px',borderTop:`1px solid ${theme.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:theme.footerBg,borderRadius:'0 0 16px 16px'}}>
+              <div style={{fontSize:12,color:theme.subText}}>* Required fields</div>
               <div style={{display:'flex',gap:8}}>
                 <button onClick={() => { setCreating({ pair: '', entryPrice: '', exitPrice: '', notes: '', stopLoss:'', takeProfit:'', date:'', result:'Open', entryTime:'', exitTime:'', timeframe:'', direction:'', positionSize:'', broker:'', strategy:'', trigger:'', trendDirection:'', htfBias:'', supportResistance:'', volatility:'', reasonForEntry:'', riskRewardRatio:'', stopLossReason:'', takeProfitReason:'', alignedWithPlan:'', criteriaCheck1:false, criteriaCheck2:false, criteriaCheck3:false, criteriaCheck4:false, criteriaCheck5:false, actualEntryPrice:'', actualStopLoss:'', actualTakeProfit:'', slippage:'', followedPlan:'Yes', entryTiming:'On Time', fomoEntry:'No', rrAchieved:'', pipsGainedLost:'', profitLossAmount:'', timeInTrade:'', whatWentWell:'', whatWentWrong:'', exitAccordingToPlan:'Yes', earlyExitEmotions:'No', movedStopTooSoon:'No', heldTooLong:'No', marketBehaviorAlignment:'Yes', wouldTakeAgain:'Yes', emotionalFactors:[], moodBeforeTrade:'', confidenceLevel:'5', distractionLevel:'Low', emotionalTriggers:'', thingToImprove:'', followedRules:'Yes', planUpdateRequired:'No', mistakePatterns:'' }); setEditingTrade(null); setModalOpen(false); setActiveTab(0) }} style={{padding:'10px 20px',background:'transparent',border:'1px solid #d1d5db',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:500}}>Cancel</button>
                 <button 
@@ -1656,7 +1695,8 @@ export default function TradeJournal() {
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Image Editor */}
       {editingImage && (

@@ -107,7 +107,20 @@ html,body,#__next{height:100%}
   color: #1E1F26 !important;
   border-right: 1px solid #E5E7EC !important;
   font-size: 13px !important;
-  padding: 8px 12px !important;
+  padding: 2px 6px !important;
+  line-height: 1.2 !important;
+}
+
+.ag-theme-alpine .ag-row {
+  height: 28px !important;
+}
+
+.ag-theme-alpine .ag-header-row {
+  height: 32px !important;
+}
+
+.ag-theme-alpine .ag-header-cell {
+  padding: 4px 6px !important;
 }
 
 /* Clean AG Grid root wrapper */
