@@ -4,6 +4,7 @@ import TimelineIcon from '@mui/icons-material/Timeline'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import HistoryIcon from '@mui/icons-material/History'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 
 export default function Sidebar({ open = true, onNavigate, onClose }) {
   const navItems = [
@@ -12,6 +13,7 @@ export default function Sidebar({ open = true, onNavigate, onClose }) {
     { label: 'Current Analysis', icon: <AssignmentIcon />, view: 'analysis' },
     { label: 'Journal History', icon: <HistoryIcon />, view: 'history' },
     { label: 'Trade Journal', icon: <TrendingUpIcon />, view: 'trade-journal' },
+    { label: 'Oanda Orders', icon: <AccountBalanceIcon />, view: 'oanda-transactions' },
   ]
 
   const drawerContent = (

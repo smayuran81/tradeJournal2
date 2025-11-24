@@ -82,22 +82,35 @@ export default function TradeJournal() {
     const sl = t.stopLoss ? Number(t.stopLoss) : null
     const tp = t.takeProfit ? Number(t.takeProfit) : null
     
-    // Calculate pips and RR
-    let pipsRR = ''
-    if (entry && exit) {
-      const pips = computePips(t.pair, entry, exit)
-      if (t.rrAchieved) {
-        pipsRR = `${pips} / ${t.rrAchieved}`
-      } else {
-        pipsRR = pips.toString()
-      }
-    }
-    
     let result = t.result || 'Open'
     // Only auto-compute if no result is set and we have both entry and exit
     if (!t.result && exit && entry) {
       const profit = exit - entry
       result = profit > 0 ? 'Win' : (profit < 0 ? 'Loss' : 'Breakeven')
+    }
+    
+    // Calculate RR
+    let pipsRR = ''
+    let profitLoss = 0
+    if (entry && exit) {
+      const pips = computePips(t.pair, entry, exit)
+      if (result === 'Breakeven') {
+        pipsRR = '0'
+      } else if (t.rrAchieved) {
+        pipsRR = t.rrAchieved
+      } else {
+        pipsRR = ''
+      }
+      
+      // Calculate P&L from exits or simple calculation
+      if (t.exits && t.exits.length > 0) {
+        profitLoss = t.exits.reduce((sum, exit) => sum + (Number(exit.profitLoss) || 0), 0)
+      } else {
+        // Simple P&L calculation based on entry/exit and lots
+        const lots = Number(t.lots) || 0.1
+        const pipValue = t.pair && t.pair.includes('JPY') ? 1 : 10 // Simplified pip value
+        profitLoss = pips * pipValue * lots
+      }
     }
     console.log('Trade result mapping:', { id: t.id, dbResult: t.result, computedResult: result })
     
@@ -116,6 +129,8 @@ export default function TradeJournal() {
       exitPrice: t.exitPrice || '',
       result,
       pipsRR,
+      profitLoss: profitLoss.toFixed(2),
+      lots: t.lots || '',
       raw: t
     }
   }), [trades])
@@ -176,7 +191,9 @@ export default function TradeJournal() {
         return value === 'Win' ? 'result-win' : value === 'Loss' ? 'result-loss' : value === 'Breakeven' ? 'result-breakeven' : 'result-open'
       }
     },
-    { field: 'pipsRR', headerName: 'Pips / Reward Risk Ratio', minWidth: 90, flex: 1, editable: false }
+    { field: 'pipsRR', headerName: 'RR', minWidth: 60, flex: 0.8, editable: false, valueFormatter: params => params.value ? `${params.value}R` : '' },
+    { field: 'profitLoss', headerName: 'P&L ($)', minWidth: 80, flex: 0.8, editable: false, cellStyle: params => ({ color: params.value > 0 ? '#00C48C' : params.value < 0 ? '#F95F62' : '#1E1F26', fontWeight: '600' }) },
+    { field: 'lots', headerName: 'Lots', minWidth: 60, flex: 0.6, editable: true }
   ], [])
 
   const onSelectionChanged = useCallback((params) => {
@@ -251,7 +268,7 @@ export default function TradeJournal() {
   // Create new trade entry (modal-driven)
   const [creating, setCreating] = useState({ 
     pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', images: [], 
-    entryTime: '', exitTime: '', timeframe: '', direction: '', positionSize: '', broker: '',
+    entryTime: '', exitTime: '', timeframe: '', direction: '', positionSize: '', broker: '', lots: '', exits: [],
     strategy: '', trigger: '', trendDirection: '', htfBias: '', supportResistance: '', volatility: '',
     reasonForEntry: '', riskRewardRatio: '', stopLossReason: '', takeProfitReason: '', alignedWithPlan: '',
     criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false,
@@ -317,6 +334,8 @@ export default function TradeJournal() {
       direction: creating.direction || '',
       positionSize: creating.positionSize || '',
       broker: creating.broker || '',
+      lots: creating.lots || '',
+      exits: creating.exits || [],
       strategy: creating.strategy || '',
       trigger: creating.trigger || '',
       trendDirection: creating.trendDirection || '',
@@ -676,6 +695,8 @@ export default function TradeJournal() {
           </div>
         </div>
 
+
+
         <div style={{flex:1,minHeight:0,background:'#FFFFFF',borderRadius:8,border:'1px solid #E5E7EC',overflow:'hidden'}}>
           <div className="grid-wrapper ag-theme-alpine" style={{height:'100%',width:'100%'}}>
             <AgGridReact
@@ -707,6 +728,8 @@ export default function TradeJournal() {
                   direction: trade.direction || '',
                   positionSize: trade.positionSize || '',
                   broker: trade.broker || '',
+                  lots: trade.lots || '',
+                  exits: trade.exits || [],
                   strategy: trade.strategy || '',
                   trigger: trade.trigger || '',
                   trendDirection: trade.trendDirection || '',
@@ -1049,37 +1072,37 @@ export default function TradeJournal() {
                 onClick={() => setActiveTab(4)}
                 style={{padding:'8px 12px',background:activeTab === 4 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 4 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 4 ? 600 : 400,color:activeTab === 4 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                5. Notes
+                4. Trade Results
               </button>
               <button 
                 onClick={() => setActiveTab(5)}
                 style={{padding:'8px 12px',background:activeTab === 5 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 5 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 5 ? 600 : 400,color:activeTab === 5 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                6. Execution
+                5. Execution
               </button>
               <button 
                 onClick={() => setActiveTab(6)}
                 style={{padding:'8px 12px',background:activeTab === 6 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 6 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 6 ? 600 : 400,color:activeTab === 6 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                7. Outcome
+                6. Outcome
               </button>
               <button 
                 onClick={() => setActiveTab(7)}
                 style={{padding:'8px 12px',background:activeTab === 7 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 7 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 7 ? 600 : 400,color:activeTab === 7 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                8. Post-Analysis
+                7. Post-Analysis
               </button>
               <button 
                 onClick={() => setActiveTab(8)}
                 style={{padding:'8px 12px',background:activeTab === 8 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 8 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 8 ? 600 : 400,color:activeTab === 8 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                9. Psychology
+                8. Psychology
               </button>
               <button 
                 onClick={() => setActiveTab(9)}
                 style={{padding:'8px 12px',background:activeTab === 9 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 9 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 9 ? 600 : 400,color:activeTab === 9 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                10. Lessons
+                9. Lessons
               </button>
             </div>
 
@@ -1136,6 +1159,17 @@ export default function TradeJournal() {
 
                   <div style={{display:'flex',gap:12}}>
                     <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Lots</label>
+                      <input type="number" step="0.01" placeholder="e.g., 0.1, 1.0" value={creating.lots} onChange={e => setCreating(c => ({ ...c, lots: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                    <div style={{flex:1}}>
+                      <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Broker (Optional)</label>
+                      <input type="text" placeholder="e.g., IC Markets, OANDA, etc." value={creating.broker} onChange={e => setCreating(c => ({ ...c, broker: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
+                    </div>
+                  </div>
+
+                  <div style={{display:'flex',gap:12}}>
+                    <div style={{flex:1}}>
                       <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Entry Date & Time</label>
                       <input type="datetime-local" value={creating.entryTime} onChange={e => setCreating(c => ({ ...c, entryTime: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
                     </div>
@@ -1145,10 +1179,7 @@ export default function TradeJournal() {
                     </div>
                   </div>
 
-                  <div>
-                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Broker (Optional)</label>
-                    <input type="text" placeholder="e.g., IC Markets, OANDA, etc." value={creating.broker} onChange={e => setCreating(c => ({ ...c, broker: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14}} />
-                  </div>
+
                 </div>
               )}
 
@@ -1377,9 +1408,103 @@ export default function TradeJournal() {
               )}
 
               {activeTab === 4 && (
-                <div>
-                  <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:8}}>Trade Notes & Analysis</label>
-                  <WysiwygEditor value={creating.notes || ''} onChange={html => setCreating(c => ({ ...c, notes: html }))} />
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{background:'#f0f9ff',padding:16,borderRadius:8,border:'1px solid #0ea5e9'}}>
+                    <div style={{fontWeight:600,color:'#0c4a6e',marginBottom:8}}>Exit Management</div>
+                    <div style={{fontSize:13,color:'#0c4a6e'}}>Track multiple exit points and calculate total P&L</div>
+                  </div>
+
+                  <div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                      <label style={{fontSize:13,fontWeight:600,color:'#374151'}}>Exit Points</label>
+                      <button 
+                        type="button"
+                        onClick={() => setCreating(c => ({ ...c, exits: [...(c.exits || []), { price: '', lots: '', profitLoss: '' }] }))}
+                        style={{padding:'6px 12px',background:'#3b82f6',color:'white',border:'none',borderRadius:4,fontSize:12,cursor:'pointer'}}
+                      >
+                        + Add Exit
+                      </button>
+                    </div>
+                    
+                    {(creating.exits || []).length > 0 && (
+                      <div style={{border:'1px solid #d1d5db',borderRadius:8,overflow:'hidden'}}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 60px',gap:0,background:'#f9fafb',padding:12,borderBottom:'1px solid #d1d5db',fontSize:13,fontWeight:600,color:'#374151'}}>
+                          <div>Exit Price</div>
+                          <div>Lots Closed</div>
+                          <div>P&L ($)</div>
+                          <div></div>
+                        </div>
+                        {(creating.exits || []).map((exit, idx) => (
+                          <div key={idx} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 60px',gap:12,padding:12,borderBottom:idx < (creating.exits || []).length - 1 ? '1px solid #e5e7eb' : 'none'}}>
+                            <input 
+                              type="number" 
+                              step="any" 
+                              placeholder="Exit price" 
+                              value={exit.price} 
+                              onChange={e => {
+                                const newExits = [...(creating.exits || [])]
+                                newExits[idx] = { ...newExits[idx], price: e.target.value }
+                                setCreating(c => ({ ...c, exits: newExits }))
+                              }}
+                              style={{padding:'8px',border:'1px solid #d1d5db',borderRadius:4,fontSize:14}}
+                            />
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              placeholder="Lots" 
+                              value={exit.lots} 
+                              onChange={e => {
+                                const newExits = [...(creating.exits || [])]
+                                newExits[idx] = { ...newExits[idx], lots: e.target.value }
+                                setCreating(c => ({ ...c, exits: newExits }))
+                              }}
+                              style={{padding:'8px',border:'1px solid #d1d5db',borderRadius:4,fontSize:14}}
+                            />
+                            <input 
+                              type="number" 
+                              step="any" 
+                              placeholder="P&L" 
+                              value={exit.profitLoss} 
+                              onChange={e => {
+                                const newExits = [...(creating.exits || [])]
+                                newExits[idx] = { ...newExits[idx], profitLoss: e.target.value }
+                                setCreating(c => ({ ...c, exits: newExits }))
+                              }}
+                              style={{padding:'8px',border:'1px solid #d1d5db',borderRadius:4,fontSize:14}}
+                            />
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const newExits = (creating.exits || []).filter((_, i) => i !== idx)
+                                setCreating(c => ({ ...c, exits: newExits }))
+                              }}
+                              style={{padding:'6px',background:'#dc2626',color:'white',border:'none',borderRadius:4,cursor:'pointer',fontSize:12}}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        <div style={{padding:12,background:'#f9fafb',borderTop:'1px solid #d1d5db'}}>
+                          <div style={{fontWeight:600,color:'#374151'}}>Total P&L: ${(creating.exits || []).reduce((sum, exit) => sum + (Number(exit.profitLoss) || 0), 0).toFixed(2)}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Trade Result</label>
+                    <select value={creating.result || 'Open'} onChange={e => setCreating(c => ({ ...c, result: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                      <option value="Open">Open</option>
+                      <option value="Win">Win</option>
+                      <option value="Loss">Loss</option>
+                      <option value="Breakeven">Breakeven</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:8}}>Trade Notes & Analysis</label>
+                    <WysiwygEditor value={creating.notes || ''} onChange={html => setCreating(c => ({ ...c, notes: html }))} />
+                  </div>
                 </div>
               )}
 

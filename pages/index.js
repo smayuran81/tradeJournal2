@@ -14,6 +14,7 @@ export default function Home() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [currentView, setCurrentView] = useState('dashboard')
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -55,9 +56,9 @@ export default function Home() {
         isAdmin={user.username === 'admin'}
       />
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {sidebarOpen && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} isAdmin={user.username === 'admin'} />}
+        {sidebarOpen && <Sidebar open={sidebarOpen} onNavigate={setCurrentView} onClose={() => setSidebarOpen(false)} isAdmin={user.username === 'admin'} />}
         <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-          <Dashboard user={user} />
+          <Dashboard user={user} currentView={currentView} />
         </Box>
       </Box>
     </Box>

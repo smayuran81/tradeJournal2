@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { repository } from '../services/repository'
+import OandaTransactions from './OandaTransactions'
 
-export default function Dashboard({ user }) {
+export default function Dashboard({ user, currentView = 'dashboard' }) {
   const [stats, setStats] = useState({
     totalTrades: 0,
     winRate: 0,
@@ -58,6 +59,15 @@ export default function Dashboard({ user }) {
     return (
       <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'400px'}}>
         <div>Loading dashboard...</div>
+      </div>
+    )
+  }
+
+  if (currentView === 'oanda-transactions') {
+    return (
+      <div style={{padding:20}}>
+        <h1 style={{marginBottom:30,color:'#1f2937'}}>Oanda Orders</h1>
+        <OandaTransactions />
       </div>
     )
   }

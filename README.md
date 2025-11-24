@@ -257,3 +257,4 @@ For technical support or feature requests, please refer to the codebase document
 ---
 
 **TradingJournal Pro** - Enterprise-grade trading journal platform for serious traders.
+Oanda pesonal token : 5acf5d2dcd50d6112e584a8bd6704555-5e2743074126455b51c70df58c6b36c7
