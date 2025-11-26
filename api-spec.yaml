@@ -1,0 +1,292 @@
+openapi: 3.0.3
+info:
+  title: TradingJournal Pro API
+  description: Professional trading journal application API
+  version: 1.0.0
+  contact:
+    name: TradingJournal Pro
+    url: http://localhost:3000
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+
+paths:
+  /auth/login:
+    post:
+      summary: User login
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  example: admin123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      summary: User logout
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Logout successful
+
+  /auth/session:
+    get:
+      summary: Get current session
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Session info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+
+  /trades:
+    get:
+      summary: Get all trades for user
+      tags: [Trades]
+      responses:
+        '200':
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trade'
+    
+    post:
+      summary: Create new trade
+      tags: [Trades]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TradeInput'
+      responses:
+        '201':
+          description: Trade created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+
+  /trades/{id}:
+    put:
+      summary: Update trade
+      tags: [Trades]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TradeInput'
+      responses:
+        '200':
+          description: Trade updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+    
+    delete:
+      summary: Delete trade
+      tags: [Trades]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trade deleted
+
+  /upload-image:
+    post:
+      summary: Upload image to Cloudinary
+      tags: [Images]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image, filename]
+              properties:
+                image:
+                  type: string
+                  description: Base64 encoded image
+                filename:
+                  type: string
+                  example: trade-123-image.jpg
+      responses:
+        '200':
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  url:
+                    type: string
+                    example: https://res.cloudinary.com/...
+
+  /oanda/accounts:
+    get:
+      summary: Get Oanda accounts
+      tags: [Oanda]
+      responses:
+        '200':
+          description: Oanda accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+
+  /oanda/transactions:
+    get:
+      summary: Get Oanda transactions
+      tags: [Oanda]
+      responses:
+        '200':
+          description: Oanda transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      type: object
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        name:
+          type: string
+
+    TradeInput:
+      type: object
+      required: [pair, entryPrice, exitPrice, stopLoss, takeProfit]
+      properties:
+        pair:
+          type: string
+          example: EUR/USD
+        entryPrice:
+          type: string
+          example: "1.0923"
+        exitPrice:
+          type: string
+          example: "1.0945"
+        stopLoss:
+          type: string
+          example: "1.0900"
+        takeProfit:
+          type: string
+          example: "1.0950"
+        lots:
+          type: string
+          example: "0.1"
+        exits:
+          type: array
+          items:
+            type: object
+            properties:
+              price:
+                type: string
+              lots:
+                type: string
+              profitLoss:
+                type: string
+        timeframe:
+          type: string
+          example: H1
+        direction:
+          type: string
+          enum: [Long, Short]
+        strategy:
+          type: string
+          example: EMA Crossover
+        result:
+          type: string
+          enum: [Open, Win, Loss, Breakeven]
+        notes:
+          type: string
+        entryTime:
+          type: string
+          format: date-time
+        exitTime:
+          type: string
+          format: date-time
+        images:
+          type: array
+          items:
+            type: string
+
+    Trade:
+      allOf:
+        - $ref: '#/components/schemas/TradeInput'
+        - type: object
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            date:
+              type: string
+              format: date-time
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
