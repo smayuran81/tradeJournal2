@@ -1,0 +1,62 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - button "toggle sidebar" [ref=e6] [cursor=pointer]:
+          - img [ref=e7]
+        - generic [ref=e9]: TradingJournal Pro
+        - generic [ref=e10]:
+          - img [ref=e12] [cursor=pointer]
+          - generic [ref=e15]: Admin User
+    - generic [ref=e16]:
+      - generic [ref=e20]:
+        - list [ref=e21]:
+          - button "Weekly Dashboard" [ref=e22] [cursor=pointer]:
+            - img [ref=e24]
+            - generic [ref=e27]: Weekly Dashboard
+          - button "Weekly Analysis" [ref=e28] [cursor=pointer]:
+            - img [ref=e30]
+            - generic [ref=e33]: Weekly Analysis
+          - button "Current Analysis" [ref=e34] [cursor=pointer]:
+            - img [ref=e36]
+            - generic [ref=e39]: Current Analysis
+          - button "Journal History" [ref=e40] [cursor=pointer]:
+            - img [ref=e42]
+            - generic [ref=e45]: Journal History
+          - button "Trade Journal" [ref=e46] [cursor=pointer]:
+            - img [ref=e48]
+            - generic [ref=e51]: Trade Journal
+          - button "Oanda Orders" [ref=e52] [cursor=pointer]:
+            - img [ref=e54]
+            - generic [ref=e57]: Oanda Orders
+          - button "Strategy Playbook" [ref=e58] [cursor=pointer]:
+            - img [ref=e60]
+            - generic [ref=e64]: Strategy Playbook
+        - separator [ref=e65]
+      - main [ref=e66]:
+        - generic [ref=e67]:
+          - heading "Trading Dashboard" [level=1] [ref=e68]
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e71]: "0"
+              - generic [ref=e72]: Total Trades
+            - generic [ref=e73]:
+              - generic [ref=e74]: 0%
+              - generic [ref=e75]: Win Rate
+            - generic [ref=e76]:
+              - generic [ref=e77]: "0"
+              - generic [ref=e78]: Total P&L
+            - generic [ref=e79]:
+              - generic [ref=e80]: "+0"
+              - generic [ref=e81]: Best Trade
+          - generic [ref=e82]:
+            - heading "Recent Trades" [level=3] [ref=e83]
+            - generic [ref=e84]: No trades yet. Start by creating your first trade!
+          - generic [ref=e85]:
+            - button "Open Trade Journal" [ref=e86] [cursor=pointer]
+            - button "Refresh Data" [ref=e87] [cursor=pointer]
+  - alert [ref=e88]: /
+```

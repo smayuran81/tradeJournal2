@@ -3,7 +3,7 @@ import { repository } from '../services/repository'
 import OandaTransactions from './OandaTransactions'
 import StrategyPlaybook from './StrategyPlaybook'
 
-export default function Dashboard({ user, currentView = 'dashboard' }) {
+export default function Dashboard({ user, currentView = 'strategy-playbook' }) {
   const [stats, setStats] = useState({
     totalTrades: 0,
     winRate: 0,

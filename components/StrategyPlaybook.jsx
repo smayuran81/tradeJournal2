@@ -1,149 +1,415 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function StrategyPlaybook() {
   const [selectedStrategy, setSelectedStrategy] = useState(null)
   const [selectedSection, setSelectedSection] = useState('setup')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingRule, setEditingRule] = useState(null)
-  const [ruleContent, setRuleContent] = useState('')
-  const [rulesData, setRulesData] = useState({})
-  const [ruleSections, setRuleSections] = useState({})
   const [expandedCard, setExpandedCard] = useState(null)
   const [editMode, setEditMode] = useState(false)
-  const [newBoardModal, setNewBoardModal] = useState(false)
-  const [newBoardName, setNewBoardName] = useState('')
+  const [strategies, setStrategies] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [newCardModal, setNewCardModal] = useState(false)
+  const [newCardName, setNewCardName] = useState('')
+  const [newStrategyModal, setNewStrategyModal] = useState(false)
+  const [newStrategyName, setNewStrategyName] = useState('')
+  const [editingStrategy, setEditingStrategy] = useState(null)
+  const [editingSection, setEditingSection] = useState(null)
+  const [editValue, setEditValue] = useState('')
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false)
+  const [strategyToDelete, setStrategyToDelete] = useState(null)
+  const [newSectionModal, setNewSectionModal] = useState(false)
+  const [newSectionName, setNewSectionName] = useState('')
+  const [targetStrategyId, setTargetStrategyId] = useState(null)
+  const [setupModal, setSetupModal] = useState(false)
+  const [setupContent, setSetupContent] = useState('')
+  const [setupImage, setSetupImage] = useState(null)
   
-  const strategies = [
-    {
-      id: 1,
-      name: 'Daily Pull back',
-      description: 'Trade pullbacks in daily trend',
-      category: 'Pullback',
-      winRate: '68%',
-      riskReward: '1:3'
-    },
-    {
-      id: 2,
-      name: 'Support/Resistance Breakout',
-      description: 'Trade breakouts from key levels',
-      category: 'Breakout',
-      winRate: '58%',
-      riskReward: '1:3'
-    },
-    {
-      id: 3,
-      name: 'Price Action Reversal',
-      description: 'Candlestick pattern reversals',
-      category: 'Reversal',
-      winRate: '72%',
-      riskReward: '1:2'
-    },
-    {
-      id: 4,
-      name: 'Fibonacci Retracement',
-      description: 'Trade retracements at key fib levels',
-      category: 'Retracement',
-      winRate: '61%',
-      riskReward: '1:2.8'
+  useEffect(() => {
+    fetchStrategies()
+  }, [])
+
+  const fetchStrategies = async () => {
+    try {
+      const response = await fetch('/api/strategies')
+      const data = await response.json()
+      console.log('Fetched strategies:', data)
+      setStrategies(data.map(strategy => ({ ...strategy, id: strategy._id })))
+      setLoading(false)
+    } catch (error) {
+      console.error('Error fetching strategies:', error)
+      setLoading(false)
     }
-  ]
-
-  const sections = [
-    { id: 'setup', name: 'Setup Description' },
-    { id: 'rules', name: 'Rules' }
-  ]
-
-  const [rulesSections, setRulesSections] = useState([
-    { id: 'market-condition', name: 'Market Condition', color: '#FF6B6B' },
-    { id: 'potential-setup', name: 'When Setup Looks Like Potential', color: '#4ECDC4' },
-    { id: 'ongoing-development', name: 'Ongoing Development', color: '#45B7D1' },
-    { id: 'real-candidate', name: 'Real Candidate', color: '#96CEB4' },
-    { id: 'entry-condition', name: 'Entry Condition', color: '#FFEAA7' },
-    { id: 'exit-condition', name: 'Exit Condition', color: '#DDA0DD' },
-    { id: 'trade-management', name: 'Trade Management', color: '#98D8C8' }
-  ])
-
-  const handleEditRule = (ruleId, ruleName) => {
-    setEditingRule({ id: ruleId, name: ruleName })
-    setModalOpen(true)
   }
 
-  const addSection = (ruleId) => {
-    const key = `${selectedStrategy.id}-${ruleId}`
-    setRuleSections(prev => ({
-      ...prev,
-      [key]: [...(prev[key] || []), { id: Date.now(), text: '', image: null }]
-    }))
+  const updateSubsection = async (subsectionId, field, value) => {
+    try {
+      console.log('Updating subsection:', subsectionId, field, value)
+      const updatedStrategy = { ...selectedStrategy }
+      const rulesSection = updatedStrategy.sections.find(s => s.id === 'rules')
+      if (rulesSection && rulesSection.subsections) {
+        const subsection = rulesSection.subsections.find(s => s.id === subsectionId)
+        if (subsection) {
+          subsection[field] = value
+          
+          const { _id, ...strategyWithoutId } = updatedStrategy
+          const response = await fetch('/api/strategies', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: selectedStrategy._id, ...strategyWithoutId })
+          })
+          const result = await response.json()
+          console.log('Update result:', result)
+          
+          // Refresh strategy data from backend
+          await fetchStrategies()
+          
+          setSelectedStrategy(updatedStrategy)
+          setStrategies(prev => prev.map(s => s.id === selectedStrategy.id ? updatedStrategy : s))
+        }
+      }
+    } catch (error) {
+      console.error('Error updating subsection:', error)
+    }
   }
 
-  const updateSection = (ruleId, sectionId, field, value) => {
-    const key = `${selectedStrategy.id}-${ruleId}`
-    setRuleSections(prev => ({
-      ...prev,
-      [key]: prev[key]?.map(section => 
-        section.id === sectionId ? { ...section, [field]: value } : section
-      ) || []
-    }))
+  const deleteCard = async (cardId) => {
+    const updatedStrategy = { ...selectedStrategy }
+    const rulesSection = updatedStrategy.sections.find(s => s.id === 'rules')
+    if (rulesSection && rulesSection.subsections) {
+      rulesSection.subsections = rulesSection.subsections.filter(s => s.id !== cardId)
+      
+      const { _id, ...strategyWithoutId } = updatedStrategy
+      await fetch('/api/strategies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedStrategy._id, ...strategyWithoutId })
+      })
+      
+      setSelectedStrategy(updatedStrategy)
+      setStrategies(prev => prev.map(s => s.id === selectedStrategy.id ? updatedStrategy : s))
+    }
   }
 
-  const removeSection = (ruleId, sectionId) => {
-    const key = `${selectedStrategy.id}-${ruleId}`
-    setRuleSections(prev => ({
-      ...prev,
-      [key]: prev[key]?.filter(section => section.id !== sectionId) || []
-    }))
+  const addNewStrategy = async (strategyName) => {
+    const newStrategy = {
+      name: strategyName,
+      description: 'New strategy description',
+      category: 'Custom',
+      winRate: '0%',
+      riskReward: '1:1',
+      sections: [
+        { id: 'setup', name: 'Setup Description' },
+        { 
+          id: 'rules', 
+          name: 'Rules',
+          subsections: []
+        }
+      ]
+    }
+    
+    const response = await fetch('/api/strategies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newStrategy)
+    })
+    const savedStrategy = await response.json()
+    const strategyWithId = { ...savedStrategy, id: savedStrategy._id }
+    setStrategies(prev => [...prev, strategyWithId])
+    setSelectedStrategy(strategyWithId)
   }
 
-  const handleImageUpload = (ruleId, sectionId, file) => {
+  const deleteStrategy = async (strategyId) => {
+    await fetch(`/api/strategies?id=${strategyId}`, { method: 'DELETE' })
+    setStrategies(prev => prev.filter(s => s.id !== strategyId))
+    if (selectedStrategy?.id === strategyId) {
+      setSelectedStrategy(null)
+    }
+  }
+
+  const renameStrategy = async (strategyId, newName) => {
+    const strategy = strategies.find(s => s.id === strategyId)
+    if (strategy) {
+      const updatedStrategy = { ...strategy, name: newName }
+      const { _id, ...strategyWithoutId } = updatedStrategy
+      await fetch('/api/strategies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: strategyId, ...strategyWithoutId })
+      })
+      setStrategies(prev => prev.map(s => s.id === strategyId ? updatedStrategy : s))
+      if (selectedStrategy?.id === strategyId) {
+        setSelectedStrategy(updatedStrategy)
+      }
+    }
+  }
+
+  const renameSection = async (sectionId, newName) => {
+    if (selectedStrategy) {
+      const updatedStrategy = { ...selectedStrategy }
+      const section = updatedStrategy.sections.find(s => s.id === sectionId)
+      if (section) {
+        section.name = newName
+        const { _id, ...strategyWithoutId } = updatedStrategy
+        await fetch('/api/strategies', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selectedStrategy._id, ...strategyWithoutId })
+        })
+        setSelectedStrategy(updatedStrategy)
+        setStrategies(prev => prev.map(s => s.id === selectedStrategy.id ? updatedStrategy : s))
+      }
+    }
+  }
+
+  const updateSetupDescription = async (content, image) => {
+    if (selectedStrategy) {
+      const updatedStrategy = { ...selectedStrategy }
+      updatedStrategy.setupDescription = content
+      updatedStrategy.setupImage = image
+      
+      const { _id, ...strategyWithoutId } = updatedStrategy
+      await fetch('/api/strategies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedStrategy._id, ...strategyWithoutId })
+      })
+      
+      setSelectedStrategy(updatedStrategy)
+      setStrategies(prev => prev.map(s => s.id === selectedStrategy.id ? updatedStrategy : s))
+    }
+  }
+
+  const handleImageUpload = (file) => {
     const reader = new FileReader()
     reader.onload = (e) => {
-      updateSection(ruleId, sectionId, 'image', e.target.result)
+      setSetupImage(e.target.result)
     }
     reader.readAsDataURL(file)
   }
 
-  const deleteBoard = (ruleId) => {
-    setRulesSections(prev => prev.filter(rule => rule.id !== ruleId))
-    const key = `${selectedStrategy.id}-${ruleId}`
-    setRuleSections(prev => {
-      const newSections = { ...prev }
-      delete newSections[key]
-      return newSections
-    })
+  const addNewSection = async (strategyId, sectionName) => {
+    const strategy = strategies.find(s => s.id === strategyId)
+    if (strategy) {
+      const newSection = {
+        id: `section-${Date.now()}`,
+        name: sectionName
+      }
+      const updatedStrategy = { ...strategy }
+      updatedStrategy.sections.push(newSection)
+      
+      const { _id, ...strategyWithoutId } = updatedStrategy
+      await fetch('/api/strategies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: strategyId, ...strategyWithoutId })
+      })
+      
+      setStrategies(prev => prev.map(s => s.id === strategyId ? updatedStrategy : s))
+      if (selectedStrategy?.id === strategyId) {
+        setSelectedStrategy(updatedStrategy)
+      }
+    }
   }
 
+  const addChecklistItem = async (subsectionId, text) => {
+    console.log('Adding checklist item:', subsectionId, text)
+    const updatedStrategy = { ...selectedStrategy }
+    const rulesSection = updatedStrategy.sections.find(s => s.id === 'rules')
+    const subsection = rulesSection?.subsections?.find(s => s.id === subsectionId)
+    if (subsection) {
+      if (!subsection.checkList) subsection.checkList = []
+      subsection.checkList.push({ id: Date.now(), text, checked: false })
+      
+      const { _id, ...strategyWithoutId } = updatedStrategy
+      const response = await fetch('/api/strategies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedStrategy._id, ...strategyWithoutId })
+      })
+      const result = await response.json()
+      console.log('Checklist add result:', result)
+      
+      // Refresh strategy data from backend
+      await fetchStrategies()
+      
+      setSelectedStrategy(updatedStrategy)
+      setStrategies(prev => prev.map(s => s.id === selectedStrategy.id ? updatedStrategy : s))
+    }
+  }
 
+  const removeChecklistItem = async (subsectionId, itemId) => {
+    const updatedStrategy = { ...selectedStrategy }
+    const rulesSection = updatedStrategy.sections.find(s => s.id === 'rules')
+    const subsection = rulesSection?.subsections?.find(s => s.id === subsectionId)
+    if (subsection && subsection.checkList) {
+      subsection.checkList = subsection.checkList.filter(item => item.id !== itemId)
+      
+      const { _id, ...strategyWithoutId } = updatedStrategy
+      await fetch('/api/strategies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedStrategy._id, ...strategyWithoutId })
+      })
+      
+      setSelectedStrategy(updatedStrategy)
+      setStrategies(prev => prev.map(s => s.id === selectedStrategy.id ? updatedStrategy : s))
+    }
+  }
+
+  const addNewCard = async (cardName) => {
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#A78BFA']
+    const newCard = {
+      id: `custom-${Date.now()}`,
+      name: cardName || 'New Rule',
+      color: colors[Math.floor(Math.random() * colors.length)],
+      text: '',
+      image: null,
+      checkList: []
+    }
+    
+    console.log('Adding new card:', newCard)
+    const updatedStrategy = { ...selectedStrategy }
+    const rulesSection = updatedStrategy.sections.find(s => s.id === 'rules')
+    if (rulesSection) {
+      if (!rulesSection.subsections) rulesSection.subsections = []
+      rulesSection.subsections.push(newCard)
+      
+      console.log('Updated strategy:', updatedStrategy)
+      const { _id, ...strategyWithoutId } = updatedStrategy
+      const response = await fetch('/api/strategies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedStrategy._id, ...strategyWithoutId })
+      })
+      const result = await response.json()
+      console.log('Update response:', result)
+      
+      setSelectedStrategy(updatedStrategy)
+      setStrategies(prev => prev.map(s => s.id === selectedStrategy.id ? updatedStrategy : s))
+    }
+  }
 
   return (
     <div style={{display:'flex',height:'100vh',background:'#0F1115'}}>
       {/* Sidebar */}
       <div style={{width:300,background:'#1A1F2E',borderRight:'1px solid #2A3441',padding:20}}>
         <div style={{marginBottom:30}}>
-          <div style={{fontSize:18,fontWeight:700,color:'#D8DEE9',marginBottom:20}}>Strategy Playbook</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <div style={{fontSize:18,fontWeight:700,color:'#D8DEE9'}}>Strategy Playbook</div>
+            <button
+              onClick={() => {
+                setNewStrategyName('')
+                setNewStrategyModal(true)
+              }}
+              style={{
+                background:'#4DA3FF',
+                border:'none',
+                color:'white',
+                padding:'6px 10px',
+                borderRadius:4,
+                cursor:'pointer',
+                fontSize:12
+              }}
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <div style={{marginBottom:20}}>
-          {strategies.map(strategy => (
-            <div key={strategy.id} style={{marginBottom:16}}>
-              <div 
-                onClick={() => {setSelectedStrategy(strategy); setSelectedSection('setup')}}
-                style={{
-                  padding:12,
-                  borderRadius:8,
-                  cursor:'pointer',
-                  background: selectedStrategy?.id === strategy.id ? '#2A3441' : 'transparent',
-                  transition:'background-color 0.2s'
-                }}
-              >
-                <div style={{fontWeight:600,fontSize:14,color:'#D8DEE9'}}>{strategy.name}</div>
+          {loading ? (
+            <div style={{color:'#AEB5C2',fontSize:14}}>Loading strategies...</div>
+          ) : strategies.length === 0 ? (
+            <div style={{color:'#AEB5C2',fontSize:14}}>No strategies found</div>
+          ) : (
+            strategies.map((strategy, index) => (
+            <div key={strategy.id || strategy._id}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div 
+                  onClick={() => {setSelectedStrategy(strategy); setSelectedSection('setup')}}
+                  onDoubleClick={() => {
+                    setEditingStrategy(strategy.id)
+                    setEditValue(strategy.name)
+                  }}
+                  style={{
+                    flex:1,
+                    padding:12,
+                    borderRadius:8,
+                    cursor:'pointer',
+                    background: selectedStrategy?.id === strategy.id ? '#2A3441' : 'transparent',
+                    transition:'background-color 0.2s'
+                  }}
+                >
+                  {editingStrategy === strategy.id ? (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => {
+                        if (editValue.trim()) {
+                          renameStrategy(strategy.id, editValue.trim())
+                        }
+                        setEditingStrategy(null)
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          if (editValue.trim()) {
+                            renameStrategy(strategy.id, editValue.trim())
+                          }
+                          setEditingStrategy(null)
+                        }
+                      }}
+                      style={{
+                        background:'transparent',
+                        border:'1px solid #4DA3FF',
+                        color:'#D8DEE9',
+                        fontSize:14,
+                        fontWeight:600,
+                        padding:'2px 4px',
+                        borderRadius:4,
+                        width:'100%'
+                      }}
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <div style={{fontWeight:600,fontSize:14,color:'#D8DEE9'}}>{strategy.name}</div>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setStrategyToDelete(strategy)
+                    setDeleteConfirmModal(true)
+                  }}
+                  style={{
+                    background:'transparent',
+                    border:'none',
+                    color:'#6B7280',
+                    padding:'4px 6px',
+                    borderRadius:3,
+                    cursor:'pointer',
+                    fontSize:12,
+                    marginLeft:8,
+                    opacity:0.5,
+                    transition:'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '1'}
+                  onMouseLeave={(e) => e.target.style.opacity = '0.5'}
+                >
+                  ×
+                </button>
               </div>
               
-              {selectedStrategy?.id === strategy.id && (
+              {selectedStrategy?.id === strategy.id && strategy.sections && (
                 <div style={{marginLeft:16,marginTop:8}}>
-                  {sections.map(section => (
+                  {strategy.sections.map(section => (
                     <div
                       key={section.id}
                       onClick={() => setSelectedSection(section.id)}
+                      onDoubleClick={() => {
+                        setEditingSection(section.id)
+                        setEditValue(section.name)
+                      }}
                       style={{
                         padding:'8px 12px',
                         borderRadius:6,
@@ -153,18 +419,81 @@ export default function StrategyPlaybook() {
                         transition:'background-color 0.2s'
                       }}
                     >
-                      <div style={{
-                        color: selectedSection === section.id ? '#FFFFFF' : '#AEB5C2',
-                        fontSize:13
-                      }}>
-                        {section.name}
-                      </div>
+                      {editingSection === section.id ? (
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => {
+                            if (editValue.trim()) {
+                              renameSection(section.id, editValue.trim())
+                            }
+                            setEditingSection(null)
+                          }}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              if (editValue.trim()) {
+                                renameSection(section.id, editValue.trim())
+                              }
+                              setEditingSection(null)
+                            }
+                          }}
+                          style={{
+                            background:'transparent',
+                            border:'1px solid #4DA3FF',
+                            color:'#FFFFFF',
+                            fontSize:13,
+                            padding:'2px 4px',
+                            borderRadius:4,
+                            width:'100%'
+                          }}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <div style={{
+                          color: selectedSection === section.id ? '#FFFFFF' : '#AEB5C2',
+                          fontSize:13
+                        }}>
+                          {section.name}
+                        </div>
+                      )}
                     </div>
                   ))}
+                  <button
+                    onClick={() => {
+                      setTargetStrategyId(strategy.id)
+                      setNewSectionName('')
+                      setNewSectionModal(true)
+                    }}
+                    style={{
+                      background:'transparent',
+                      border:'1px dashed #4DA3FF',
+                      color:'#4DA3FF',
+                      padding:'6px 12px',
+                      borderRadius:6,
+                      cursor:'pointer',
+                      fontSize:12,
+                      width:'100%',
+                      marginTop:4
+                    }}
+                  >
+                    + Add Section
+                  </button>
                 </div>
               )}
+              
+              {/* Separator */}
+              {index < strategies.length - 1 && (
+                <div style={{
+                  height:1,
+                  background:'#2A3441',
+                  margin:'16px 0'
+                }} />
+              )}
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -174,12 +503,118 @@ export default function StrategyPlaybook() {
           <div>
             {selectedSection === 'setup' && (
               <div>
-                <div style={{fontSize:20,fontWeight:700,color:'#D8DEE9',marginBottom:20}}>Setup Description</div>
-                <div style={{background:'#1A1F2E',padding:20,borderRadius:12,border:'1px solid #2A3441'}}>
-                  <div style={{color:'#AEB5C2',lineHeight:1.6}}>
-                    This strategy focuses on identifying and trading pullbacks within the context of a strong daily trend. 
-                    The setup requires confirmation of the overall trend direction and waits for temporary retracements 
-                    to provide better entry points with favorable risk-reward ratios.
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+                  <div style={{fontSize:20,fontWeight:700,color:'#D8DEE9'}}>Setup Description</div>
+                  <button
+                    onClick={() => {
+                      setSetupContent(selectedStrategy.setupDescription || '')
+                      setSetupImage(selectedStrategy.setupImage || null)
+                      setSetupModal(true)
+                    }}
+                    style={{
+                      background:'#4DA3FF',
+                      border:'none',
+                      color:'white',
+                      padding:'8px 16px',
+                      borderRadius:6,
+                      cursor:'pointer',
+                      fontSize:14
+                    }}
+                  >
+                    Edit Setup
+                  </button>
+                </div>
+                
+                {/* Strategy Poster */}
+                <div style={{
+                  background:'linear-gradient(135deg, #1A1F2E 0%, #2A3441 100%)',
+                  borderRadius:16,
+                  padding:32,
+                  border:'1px solid #4DA3FF',
+                  boxShadow:'0 8px 32px rgba(77, 163, 255, 0.1)',
+                  position:'relative',
+                  overflow:'hidden'
+                }}>
+                  {/* Background Pattern */}
+                  <div style={{
+                    position:'absolute',
+                    top:0,
+                    right:0,
+                    width:200,
+                    height:200,
+                    background:'radial-gradient(circle, rgba(77, 163, 255, 0.1) 0%, transparent 70%)',
+                    borderRadius:'50%',
+                    transform:'translate(50%, -50%)'
+                  }} />
+                  
+                  <div style={{position:'relative',zIndex:1}}>
+                    <div style={{display:'flex',gap:24,alignItems:'flex-start'}}>
+                      {/* Image Section */}
+                      {selectedStrategy.setupImage && (
+                        <div style={{flex:'0 0 200px'}}>
+                          <img 
+                            src={selectedStrategy.setupImage}
+                            alt="Strategy Setup"
+                            style={{
+                              width:'100%',
+                              height:150,
+                              objectFit:'cover',
+                              borderRadius:12,
+                              border:'2px solid #4DA3FF'
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Content Section */}
+                      <div style={{flex:1}}>
+                        <div style={{
+                          fontSize:24,
+                          fontWeight:700,
+                          color:'#D8DEE9',
+                          marginBottom:16,
+                          textShadow:'0 2px 4px rgba(0,0,0,0.3)'
+                        }}>
+                          {selectedStrategy.name}
+                        </div>
+                        
+                        <div style={{
+                          color:'#AEB5C2',
+                          lineHeight:1.6,
+                          fontSize:16
+                        }}>
+                          {selectedStrategy.setupDescription ? (
+                            <div dangerouslySetInnerHTML={{ __html: selectedStrategy.setupDescription }} />
+                          ) : (
+                            <div style={{fontStyle:'italic',opacity:0.7}}>
+                              Click "Edit Setup" to add a description for this strategy...
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Strategy Stats */}
+                        <div style={{display:'flex',gap:16,marginTop:20}}>
+                          <div style={{
+                            background:'rgba(77, 163, 255, 0.1)',
+                            padding:'8px 12px',
+                            borderRadius:8,
+                            border:'1px solid rgba(77, 163, 255, 0.3)'
+                          }}>
+                            <div style={{fontSize:12,color:'#AEB5C2'}}>Win Rate</div>
+                            <div style={{fontSize:16,fontWeight:600,color:'#4DA3FF'}}>{selectedStrategy.winRate || 'N/A'}</div>
+                          </div>
+                          <div style={{
+                            background:'rgba(77, 163, 255, 0.1)',
+                            padding:'8px 12px',
+                            borderRadius:8,
+                            border:'1px solid rgba(77, 163, 255, 0.3)'
+                          }}>
+                            <div style={{fontSize:12,color:'#AEB5C2'}}>Risk:Reward</div>
+                            <div style={{fontSize:16,fontWeight:600,color:'#4DA3FF'}}>{selectedStrategy.riskReward || 'N/A'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -191,8 +626,8 @@ export default function StrategyPlaybook() {
                   <div style={{fontSize:20,fontWeight:700,color:'#D8DEE9',textAlign:'center',flex:1}}>📌 Trading Rules Board</div>
                   <button
                     onClick={() => {
-                      setNewBoardName('')
-                      setNewBoardModal(true)
+                      setNewCardName('')
+                      setNewCardModal(true)
                     }}
                     style={{
                       background:'#4DA3FF',
@@ -201,194 +636,125 @@ export default function StrategyPlaybook() {
                       padding:'8px 16px',
                       borderRadius:6,
                       cursor:'pointer',
-                      fontSize:14,
-                      display:'flex',
-                      alignItems:'center',
-                      gap:4
+                      fontSize:14
                     }}
                   >
-                    + New Board
+                    + Add Card
                   </button>
                 </div>
                 <div style={{position:'relative',height:'calc(100vh - 200px)',overflow:'hidden'}}>
-                  {rulesSections.map((section, index) => {
-                    const sections = ruleSections[`${selectedStrategy.id}-${section.id}`] || []
-                    const allSections = sections.length > 0 ? sections : [{ id: 'default', text: '', image: null }]
-                    
-                    return allSections.map((item, itemIndex) => {
-                      const totalCards = rulesSections.reduce((acc, s) => {
-                        const secs = ruleSections[`${selectedStrategy.id}-${s.id}`] || []
-                        return acc + Math.max(1, secs.length)
-                      }, 0)
+                  {selectedStrategy.sections.find(s => s.id === 'rules')?.subsections?.map((section, index) => (
+                    <div 
+                      key={section.id}
+                      onClick={(e) => {
+                        if (e.target.tagName !== 'BUTTON') {
+                          setExpandedCard(expandedCard === section.id ? null : section.id)
+                          setEditMode(false)
+                        }
+                      }}
+                      style={{
+                        position:'absolute',
+                        left: 50 + (index % 4) * 210 + (Math.random() - 0.5) * 15,
+                        top: 20 + Math.floor(index / 4) * 190 + (Math.random() - 0.5) * 10,
+                        width: 180,
+                        height: 160,
+                        background:'#FFFEF7',
+                        borderRadius:2,
+                        padding:12,
+                        transform:`rotate(${((index % 3) - 1) * 3 + (Math.random() - 0.5) * 2}deg)`,
+                        boxShadow:'0 4px 12px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)',
+                        border:'1px solid #E8E5D3',
+                        cursor:'pointer',
+                        transition:'all 0.3s ease',
+                        zIndex: expandedCard === section.id ? 100 : 1
+                      }}
+                    >
+                      {/* Pin */}
+                      <div style={{
+                        position:'absolute',
+                        top:-8,
+                        left:'50%',
+                        transform:'translateX(-50%)',
+                        width:12,
+                        height:12,
+                        background:'#DC2626',
+                        borderRadius:'50%',
+                        boxShadow:'0 2px 4px rgba(0,0,0,0.3)'
+                      }} />
                       
-                      let cardIndex = 0
-                      for (let i = 0; i < index; i++) {
-                        const secs = ruleSections[`${selectedStrategy.id}-${rulesSections[i].id}`] || []
-                        cardIndex += Math.max(1, secs.length)
-                      }
-                      cardIndex += itemIndex
+                      {/* Delete Cross */}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          await deleteCard(section.id)
+                        }}
+                        style={{
+                          position:'absolute',
+                          top:-6,
+                          left:-6,
+                          width:16,
+                          height:16,
+                          background:'#DC2626',
+                          border:'none',
+                          borderRadius:'50%',
+                          color:'white',
+                          cursor:'pointer',
+                          fontSize:10,
+                          display:'flex',
+                          alignItems:'center',
+                          justifyContent:'center',
+                          boxShadow:'0 2px 4px rgba(0,0,0,0.3)'
+                        }}
+                      >
+                        ×
+                      </button>
                       
-                      const cols = 4
-                      const col = cardIndex % cols
-                      const row = Math.floor(cardIndex / cols)
-                      const cardWidth = 180
-                      const cardHeight = 160
-                      const spacing = 30
-                      
-                      const rotation = (cardIndex % 3 - 1) * 3 + (Math.random() - 0.5) * 2
-                      const xOffset = 50 + col * (cardWidth + spacing) + (Math.random() - 0.5) * 15
-                      const yOffset = 20 + row * (cardHeight + spacing) + (Math.random() - 0.5) * 10
-                      
-                      return (
-                        <div 
-                          key={`${section.id}-${item.id}`}
-                          onClick={(e) => {
-                            if (e.target.tagName !== 'BUTTON') {
-                              setExpandedCard(expandedCard === `${section.id}-${item.id}` ? null : `${section.id}-${item.id}`)
-                              setEditMode(false)
-                            }
-                          }}
-                          style={{
-                            position:'absolute',
-                            left: xOffset,
-                            top: yOffset,
-                            width: cardWidth,
-                            height: cardHeight,
-                            background:'#FFFEF7',
-                            borderRadius:2,
-                            padding:12,
-                            transform:`rotate(${rotation}deg)`,
-                            boxShadow:'0 4px 12px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)',
-                            border:'1px solid #E8E5D3',
-                            cursor:'pointer',
-                            transition:'all 0.3s ease',
-                            zIndex: expandedCard === `${section.id}-${item.id}` ? 100 : 1
-                          }}
-                          onMouseEnter={(e) => {
-                            if (expandedCard !== `${section.id}-${item.id}`) {
-                              e.target.style.transform = `rotate(0deg) scale(1.05)`
-                              e.target.style.zIndex = '10'
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (expandedCard !== `${section.id}-${item.id}`) {
-                              e.target.style.transform = `rotate(${rotation}deg) scale(1)`
-                              e.target.style.zIndex = '1'
-                            }
-                          }}
-                        >
-                          {/* Pin */}
-                          <div style={{
-                            position:'absolute',
-                            top:-8,
-                            left:'50%',
-                            transform:'translateX(-50%)',
-                            width:12,
-                            height:12,
-                            background:'#DC2626',
-                            borderRadius:'50%',
-                            boxShadow:'0 2px 4px rgba(0,0,0,0.3)'
-                          }} />
-                          
-                          {/* Delete Cross */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteBoard(section.id)
-                            }}
-                            style={{
-                              position:'absolute',
-                              top:-6,
-                              left:-6,
-                              width:16,
-                              height:16,
-                              background:'#DC2626',
-                              border:'none',
-                              borderRadius:'50%',
-                              color:'white',
-                              cursor:'pointer',
-                              fontSize:10,
-                              display:'flex',
-                              alignItems:'center',
-                              justifyContent:'center',
-                              boxShadow:'0 2px 4px rgba(0,0,0,0.3)'
-                            }}
-                          >
-                            ×
-                          </button>
-                          
-                          {/* Action Buttons */}
-                          <div style={{position:'absolute',top:4,right:4,display:'flex',gap:2}}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setExpandedCard(`${section.id}-${item.id}`)
-                                setEditMode(true)
-                              }}
-                              style={{
-                                background:'none',
-                                border:'none',
-                                color:'#6B7280',
-                                cursor:'pointer',
-                                fontSize:12,
-                                padding:2
-                              }}
-                            >
-                              ✏️
-                            </button>
-                          </div>
-                          
-                          {/* Header */}
-                          <div style={{marginBottom:8,paddingTop:4}}>
-                            <div style={{
-                              color:section.color,
-                              fontWeight:700,
-                              fontSize:11,
-                              textTransform:'uppercase',
-                              letterSpacing:'0.5px',
-                              textAlign:'center'
-                            }}>
-                              {section.name.split(' ')[0]}
-                              {sections.length > 1 && (
-                                <span style={{fontSize:9,marginLeft:4}}>#{itemIndex + 1}</span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Preview Content */}
-                          <div style={{height:'calc(100% - 35px)',overflow:'hidden'}}>
-                            {item.image && (
-                              <img 
-                                src={item.image} 
-                                alt="Note" 
-                                style={{
-                                  width:'100%',
-                                  height:50,
-                                  objectFit:'cover',
-                                  borderRadius:2,
-                                  marginBottom:4
-                                }}
-                              />
-                            )}
-                            
-                            <div style={{
-                              color:'#374151',
-                              fontSize:10,
-                              fontFamily:'"Comic Sans MS", cursive',
-                              lineHeight:1.2,
-                              overflow:'hidden',
-                              textOverflow:'ellipsis',
-                              display:'-webkit-box',
-                              WebkitLineClamp:item.image ? 3 : 5,
-                              WebkitBoxOrient:'vertical'
-                            }}>
-                              {item.text || `Click to add notes...`}
-                            </div>
-                          </div>
+                      {/* Header */}
+                      <div style={{marginBottom:8,paddingTop:4}}>
+                        <div style={{
+                          color:section.color,
+                          fontWeight:700,
+                          fontSize:11,
+                          textTransform:'uppercase',
+                          letterSpacing:'0.5px',
+                          textAlign:'center'
+                        }}>
+                          {(section.name || '').toString().split(' ')[0]}
                         </div>
-                      )
-                    })
-                  })}
+                      </div>
+                      
+                      {/* Preview Content */}
+                      <div style={{height:'calc(100% - 35px)',overflow:'hidden'}}>
+                        {section.image && (
+                          <img 
+                            src={section.image} 
+                            alt="Note" 
+                            style={{
+                              width:'100%',
+                              height:50,
+                              objectFit:'cover',
+                              borderRadius:2,
+                              marginBottom:4
+                            }}
+                          />
+                        )}
+                        
+                        <div style={{
+                          color:'#374151',
+                          fontSize:10,
+                          fontFamily:'"Comic Sans MS", cursive',
+                          lineHeight:1.2,
+                          overflow:'hidden',
+                          textOverflow:'ellipsis',
+                          display:'-webkit-box',
+                          WebkitLineClamp:section.image ? 3 : 5,
+                          WebkitBoxOrient:'vertical'
+                        }}>
+                          {section.text || `Click to add notes...`}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                   
                   {/* Expanded Card Modal */}
                   {expandedCard && (
@@ -404,15 +770,11 @@ export default function StrategyPlaybook() {
                       justifyContent:'center',
                       zIndex:1000
                     }}>
-                      {rulesSections.map(section => {
-                        const sections = ruleSections[`${selectedStrategy.id}-${section.id}`] || []
-                        const allSections = sections.length > 0 ? sections : [{ id: 'default', text: '', image: null }]
-                        const item = allSections[0]
-                        
-                        if (expandedCard !== `${section.id}-${item.id}`) return null
+                      {selectedStrategy.sections.find(s => s.id === 'rules')?.subsections?.map(section => {
+                        if (expandedCard !== section.id) return null
                         
                         return (
-                          <div key={expandedCard} style={{
+                          <div key={section.id} style={{
                             width:500,
                             maxHeight:'80vh',
                             background:'#FFFEF7',
@@ -464,10 +826,10 @@ export default function StrategyPlaybook() {
                             </div>
                             
                             {/* Image at top */}
-                            {item.image && (
+                            {section.image && (
                               <div style={{marginBottom:16}}>
                                 <img 
-                                  src={item.image} 
+                                  src={section.image} 
                                   alt="Note" 
                                   style={{
                                     width:'100%',
@@ -483,20 +845,17 @@ export default function StrategyPlaybook() {
                             <div style={{flex:1}}>
                               {editMode ? (
                                 <textarea
-                                  value={item.text}
+                                  value={section.text || ''}
                                   onChange={(e) => {
-                                    if (item.id === 'default') {
-                                      addSection(section.id)
-                                      setTimeout(() => {
-                                        const newSections = ruleSections[`${selectedStrategy.id}-${section.id}`] || []
-                                        if (newSections.length > 0) {
-                                          updateSection(section.id, newSections[0].id, 'text', e.target.value)
-                                        }
-                                      }, 0)
-                                    } else {
-                                      updateSection(section.id, item.id, 'text', e.target.value)
+                                    const updatedStrategy = { ...selectedStrategy }
+                                    const rulesSection = updatedStrategy.sections.find(s => s.id === 'rules')
+                                    const subsection = rulesSection?.subsections?.find(s => s.id === section.id)
+                                    if (subsection) {
+                                      subsection.text = e.target.value
+                                      setSelectedStrategy(updatedStrategy)
                                     }
                                   }}
+                                  onBlur={(e) => updateSubsection(section.id, 'text', e.target.value)}
                                   placeholder={`Add detailed ${section.name.toLowerCase()} notes...`}
                                   style={{
                                     width:'100%',
@@ -523,49 +882,70 @@ export default function StrategyPlaybook() {
                                   borderRadius:4,
                                   whiteSpace:'pre-wrap'
                                 }}>
-                                  {item.text || `No ${section.name.toLowerCase()} notes added yet.`}
+                                  {section.text || `No ${section.name.toLowerCase()} notes added yet.`}
                                 </div>
                               )}
                             </div>
                             
-                            {editMode && (
-                              <div style={{display:'flex',gap:12,marginTop:16}}>
+                            {/* Checklist Section */}
+                            <div style={{marginTop:16}}>
+                              <div style={{fontSize:14,fontWeight:600,color:'#374151',marginBottom:8}}>Checkpoints</div>
+                              {section.checkList && section.checkList.length > 0 && (
+                                <div style={{marginBottom:12}}>
+                                  {section.checkList.map(item => (
+                                    <div key={item.id} style={{display:'flex',alignItems:'center',marginBottom:6}}>
+                                      <div style={{
+                                        flex:1,
+                                        padding:'6px 8px',
+                                        background:'#F9FAFB',
+                                        border:'1px solid #E5E7EB',
+                                        borderRadius:4,
+                                        fontSize:12,
+                                        color:'#374151'
+                                      }}>
+                                        {item.text}
+                                      </div>
+                                      {editMode && (
+                                        <button
+                                          onClick={() => removeChecklistItem(section.id, item.id)}
+                                          style={{
+                                            background:'transparent',
+                                            border:'none',
+                                            color:'#DC2626',
+                                            cursor:'pointer',
+                                            fontSize:12,
+                                            marginLeft:8
+                                          }}
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {editMode && (
                                 <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    if (e.target.files[0]) {
-                                      if (item.id === 'default') {
-                                        addSection(section.id)
-                                        setTimeout(() => {
-                                          const newSections = ruleSections[`${selectedStrategy.id}-${section.id}`] || []
-                                          if (newSections.length > 0) {
-                                            handleImageUpload(section.id, newSections[0].id, e.target.files[0])
-                                          }
-                                        }, 0)
-                                      } else {
-                                        handleImageUpload(section.id, item.id, e.target.files[0])
-                                      }
+                                  type="text"
+                                  placeholder="Add checkpoint..."
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter' && e.target.value.trim()) {
+                                      addChecklistItem(section.id, e.target.value.trim())
+                                      e.target.value = ''
                                     }
                                   }}
-                                  style={{display:'none'}}
-                                  id={`expanded-image-${section.id}-${item.id}`}
-                                />
-                                <label 
-                                  htmlFor={`expanded-image-${section.id}-${item.id}`}
                                   style={{
-                                    background:'#4DA3FF',
-                                    color:'white',
-                                    padding:'8px 16px',
-                                    borderRadius:6,
-                                    cursor:'pointer',
-                                    fontSize:14
+                                    width:'100%',
+                                    padding:'6px 8px',
+                                    background:'transparent',
+                                    border:'1px dashed #D1D5DB',
+                                    borderRadius:4,
+                                    fontSize:12,
+                                    color:'#6B7280'
                                   }}
-                                >
-                                  📷 {item.image ? 'Change Image' : 'Add Image'}
-                                </label>
-                              </div>
-                            )}
+                                />
+                              )}
+                            </div>
                           </div>
                         )
                       })}
@@ -586,9 +966,8 @@ export default function StrategyPlaybook() {
         )}
       </div>
 
-
-      {/* New Board Name Modal */}
-      {newBoardModal && (
+      {/* New Card Modal */}
+      {newCardModal && (
         <div style={{
           position:'fixed',
           top:0,
@@ -609,13 +988,13 @@ export default function StrategyPlaybook() {
             padding:24
           }}>
             <div style={{fontSize:18,fontWeight:700,color:'#D8DEE9',marginBottom:20}}>
-              Create New Board
+              Add New Card
             </div>
             <input
               type="text"
-              value={newBoardName}
-              onChange={(e) => setNewBoardName(e.target.value)}
-              placeholder="Enter board name..."
+              value={newCardName}
+              onChange={(e) => setNewCardName(e.target.value)}
+              placeholder="Enter card name..."
               style={{
                 width:'100%',
                 padding:12,
@@ -628,23 +1007,15 @@ export default function StrategyPlaybook() {
               }}
               autoFocus
               onKeyPress={(e) => {
-                if (e.key === 'Enter' && newBoardName.trim()) {
-                  const newRuleId = `custom-${Date.now()}`
-                  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#A78BFA']
-                  const newRule = {
-                    id: newRuleId,
-                    name: newBoardName.trim(),
-                    color: colors[Math.floor(Math.random() * colors.length)]
-                  }
-                  setRulesSections(prev => [...prev, newRule])
-                  addSection(newRuleId)
-                  setNewBoardModal(false)
+                if (e.key === 'Enter' && newCardName.trim()) {
+                  addNewCard(newCardName.trim())
+                  setNewCardModal(false)
                 }
               }}
             />
             <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
               <button 
-                onClick={() => setNewBoardModal(false)}
+                onClick={() => setNewCardModal(false)}
                 style={{
                   padding:'8px 16px',
                   background:'transparent',
@@ -658,30 +1029,408 @@ export default function StrategyPlaybook() {
               </button>
               <button 
                 onClick={() => {
-                  if (newBoardName.trim()) {
-                    const newRuleId = `custom-${Date.now()}`
-                    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#A78BFA']
-                    const newRule = {
-                      id: newRuleId,
-                      name: newBoardName.trim(),
-                      color: colors[Math.floor(Math.random() * colors.length)]
-                    }
-                    setRulesSections(prev => [...prev, newRule])
-                    addSection(newRuleId)
-                    setNewBoardModal(false)
+                  if (newCardName.trim()) {
+                    addNewCard(newCardName.trim())
+                    setNewCardModal(false)
                   }
                 }}
-                disabled={!newBoardName.trim()}
+                disabled={!newCardName.trim()}
                 style={{
                   padding:'8px 16px',
-                  background: newBoardName.trim() ? '#4DA3FF' : '#2A3441',
+                  background: newCardName.trim() ? '#4DA3FF' : '#2A3441',
                   border:'none',
                   borderRadius:6,
-                  color: newBoardName.trim() ? 'white' : '#6B7280',
-                  cursor: newBoardName.trim() ? 'pointer' : 'not-allowed'
+                  color: newCardName.trim() ? 'white' : '#6B7280',
+                  cursor: newCardName.trim() ? 'pointer' : 'not-allowed'
                 }}
               >
-                Create
+                Add Card
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Strategy Modal */}
+      {newStrategyModal && (
+        <div style={{
+          position:'fixed',
+          top:0,
+          left:0,
+          right:0,
+          bottom:0,
+          background:'rgba(0,0,0,0.7)',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'center',
+          zIndex:1000
+        }}>
+          <div style={{
+            width:400,
+            background:'#1A1F2E',
+            border:'1px solid #2A3441',
+            borderRadius:12,
+            padding:24
+          }}>
+            <div style={{fontSize:18,fontWeight:700,color:'#D8DEE9',marginBottom:20}}>
+              Add New Strategy
+            </div>
+            <input
+              type="text"
+              value={newStrategyName}
+              onChange={(e) => setNewStrategyName(e.target.value)}
+              placeholder="Enter strategy name..."
+              style={{
+                width:'100%',
+                padding:12,
+                background:'#0F1115',
+                border:'1px solid #2A3441',
+                borderRadius:6,
+                color:'#D8DEE9',
+                fontSize:14,
+                marginBottom:20
+              }}
+              autoFocus
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && newStrategyName.trim()) {
+                  addNewStrategy(newStrategyName.trim())
+                  setNewStrategyModal(false)
+                }
+              }}
+            />
+            <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+              <button 
+                onClick={() => setNewStrategyModal(false)}
+                style={{
+                  padding:'8px 16px',
+                  background:'transparent',
+                  border:'1px solid #2A3441',
+                  borderRadius:6,
+                  color:'#AEB5C2',
+                  cursor:'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  if (newStrategyName.trim()) {
+                    addNewStrategy(newStrategyName.trim())
+                    setNewStrategyModal(false)
+                  }
+                }}
+                disabled={!newStrategyName.trim()}
+                style={{
+                  padding:'8px 16px',
+                  background: newStrategyName.trim() ? '#4DA3FF' : '#2A3441',
+                  border:'none',
+                  borderRadius:6,
+                  color: newStrategyName.trim() ? 'white' : '#6B7280',
+                  cursor: newStrategyName.trim() ? 'pointer' : 'not-allowed'
+                }}
+              >
+                Add Strategy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Setup Description Modal */}
+      {setupModal && (
+        <div style={{
+          position:'fixed',
+          top:0,
+          left:0,
+          right:0,
+          bottom:0,
+          background:'rgba(0,0,0,0.7)',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'center',
+          zIndex:1000
+        }}>
+          <div style={{
+            width:700,
+            maxHeight:'80vh',
+            background:'#1A1F2E',
+            border:'1px solid #2A3441',
+            borderRadius:12,
+            padding:24,
+            overflow:'auto'
+          }}>
+            <div style={{fontSize:18,fontWeight:700,color:'#D8DEE9',marginBottom:20}}>
+              Edit Setup Description
+            </div>
+            
+            {/* Image Upload */}
+            <div style={{marginBottom:20}}>
+              <label style={{display:'block',fontSize:14,fontWeight:600,color:'#D8DEE9',marginBottom:8}}>Strategy Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  if (e.target.files[0]) {
+                    handleImageUpload(e.target.files[0])
+                  }
+                }}
+                style={{
+                  width:'100%',
+                  padding:8,
+                  background:'#0F1115',
+                  border:'1px solid #2A3441',
+                  borderRadius:6,
+                  color:'#D8DEE9',
+                  fontSize:14
+                }}
+              />
+              {setupImage && (
+                <div style={{marginTop:12,position:'relative',display:'inline-block'}}>
+                  <img 
+                    src={setupImage}
+                    alt="Preview"
+                    style={{
+                      width:200,
+                      height:120,
+                      objectFit:'cover',
+                      borderRadius:8,
+                      border:'1px solid #2A3441'
+                    }}
+                  />
+                  <button
+                    onClick={() => setSetupImage(null)}
+                    style={{
+                      position:'absolute',
+                      top:-8,
+                      right:-8,
+                      width:24,
+                      height:24,
+                      background:'#DC2626',
+                      border:'none',
+                      borderRadius:'50%',
+                      color:'white',
+                      cursor:'pointer',
+                      fontSize:14,
+                      display:'flex',
+                      alignItems:'center',
+                      justifyContent:'center',
+                      boxShadow:'0 2px 4px rgba(0,0,0,0.3)'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Text Editor */}
+            <div style={{marginBottom:20}}>
+              <label style={{display:'block',fontSize:14,fontWeight:600,color:'#D8DEE9',marginBottom:8}}>Description</label>
+              <textarea
+                value={setupContent}
+                onChange={(e) => setSetupContent(e.target.value)}
+                placeholder="Describe your trading strategy setup..."
+                style={{
+                  width:'100%',
+                  height:200,
+                  background:'#0F1115',
+                  border:'1px solid #2A3441',
+                  borderRadius:6,
+                  color:'#D8DEE9',
+                  fontSize:14,
+                  padding:12,
+                  resize:'vertical',
+                  fontFamily:'inherit'
+                }}
+              />
+            </div>
+            
+            <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+              <button 
+                onClick={() => setSetupModal(false)}
+                style={{
+                  padding:'10px 20px',
+                  background:'transparent',
+                  border:'1px solid #2A3441',
+                  borderRadius:6,
+                  color:'#AEB5C2',
+                  cursor:'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  updateSetupDescription(setupContent, setupImage)
+                  setSetupModal(false)
+                }}
+                style={{
+                  padding:'10px 20px',
+                  background:'#4DA3FF',
+                  border:'none',
+                  borderRadius:6,
+                  color:'white',
+                  cursor:'pointer',
+                  fontWeight:600
+                }}
+              >
+                Save Setup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Section Modal */}
+      {newSectionModal && (
+        <div style={{
+          position:'fixed',
+          top:0,
+          left:0,
+          right:0,
+          bottom:0,
+          background:'rgba(0,0,0,0.7)',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'center',
+          zIndex:1000
+        }}>
+          <div style={{
+            width:400,
+            background:'#1A1F2E',
+            border:'1px solid #2A3441',
+            borderRadius:12,
+            padding:24
+          }}>
+            <div style={{fontSize:18,fontWeight:700,color:'#D8DEE9',marginBottom:20}}>
+              Add New Section
+            </div>
+            <input
+              type="text"
+              value={newSectionName}
+              onChange={(e) => setNewSectionName(e.target.value)}
+              placeholder="Enter section name..."
+              style={{
+                width:'100%',
+                padding:12,
+                background:'#0F1115',
+                border:'1px solid #2A3441',
+                borderRadius:6,
+                color:'#D8DEE9',
+                fontSize:14,
+                marginBottom:20
+              }}
+              autoFocus
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && newSectionName.trim()) {
+                  addNewSection(targetStrategyId, newSectionName.trim())
+                  setNewSectionModal(false)
+                }
+              }}
+            />
+            <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+              <button 
+                onClick={() => setNewSectionModal(false)}
+                style={{
+                  padding:'8px 16px',
+                  background:'transparent',
+                  border:'1px solid #2A3441',
+                  borderRadius:6,
+                  color:'#AEB5C2',
+                  cursor:'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  if (newSectionName.trim()) {
+                    addNewSection(targetStrategyId, newSectionName.trim())
+                    setNewSectionModal(false)
+                  }
+                }}
+                disabled={!newSectionName.trim()}
+                style={{
+                  padding:'8px 16px',
+                  background: newSectionName.trim() ? '#4DA3FF' : '#2A3441',
+                  border:'none',
+                  borderRadius:6,
+                  color: newSectionName.trim() ? 'white' : '#6B7280',
+                  cursor: newSectionName.trim() ? 'pointer' : 'not-allowed'
+                }}
+              >
+                Add Section
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal && strategyToDelete && (
+        <div style={{
+          position:'fixed',
+          top:0,
+          left:0,
+          right:0,
+          bottom:0,
+          background:'rgba(0,0,0,0.7)',
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'center',
+          zIndex:1000
+        }}>
+          <div style={{
+            width:450,
+            background:'#1A1F2E',
+            border:'1px solid #2A3441',
+            borderRadius:12,
+            padding:24
+          }}>
+            <div style={{fontSize:18,fontWeight:700,color:'#DC2626',marginBottom:16}}>
+              ⚠️ Delete Strategy
+            </div>
+            <div style={{color:'#D8DEE9',marginBottom:20,lineHeight:1.5}}>
+              Are you sure you want to delete <strong>"{strategyToDelete.name}"</strong>?
+              <br /><br />
+              <span style={{color:'#F59E0B'}}>This action cannot be undone.</span> All sections, cards, and data associated with this strategy will be permanently removed.
+            </div>
+            <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+              <button 
+                onClick={() => {
+                  setDeleteConfirmModal(false)
+                  setStrategyToDelete(null)
+                }}
+                style={{
+                  padding:'10px 20px',
+                  background:'transparent',
+                  border:'1px solid #2A3441',
+                  borderRadius:6,
+                  color:'#AEB5C2',
+                  cursor:'pointer',
+                  fontSize:14
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  deleteStrategy(strategyToDelete.id)
+                  setDeleteConfirmModal(false)
+                  setStrategyToDelete(null)
+                }}
+                style={{
+                  padding:'10px 20px',
+                  background:'#DC2626',
+                  border:'none',
+                  borderRadius:6,
+                  color:'white',
+                  cursor:'pointer',
+                  fontSize:14,
+                  fontWeight:600
+                }}
+              >
+                Delete Strategy
               </button>
             </div>
           </div>

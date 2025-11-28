@@ -1,26 +1,33 @@
 {
   "name": "next-aggrid-ticker",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.5",
-    "@mui/material": "^7.3.5",
-    "ag-grid-community": "29.3.2",
-    "ag-grid-react": "29.3.2",
-    "cloudinary": "^1.41.3",
-    "mongodb": "^6.21.0",
-    "next": "13.4.19",
-    "next-auth": "^4.24.13",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-quill": "2.0.0"
+    "@mui/material": "^5.15.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "ag-grid-community": "^31.0.0",
+    "ag-grid-react": "^31.0.0",
+    "cloudinary": "^1.41.0",
+    "mongodb": "^6.3.0",
+    "multer": "^1.4.5-lts.1",
+    "next": "14.0.4",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-quill": "^2.0.0",
+    "@mui/icons-material": "^5.15.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.4"
   }
 }
