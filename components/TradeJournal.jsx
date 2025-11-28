@@ -995,18 +995,18 @@ export default function TradeJournal() {
       {/* Modal */}
       {modalOpen && (() => {
         const theme = darkMode ? {
-          bg: 'linear-gradient(145deg, #2D3748 0%, #1A202C 100%)',
-          headerBg: 'linear-gradient(135deg, #374151 0%, #2D3748 100%)',
-          tabsBg: 'rgba(0,0,0,0.15)',
-          contentBg: 'linear-gradient(145deg, #2D3748 0%, #374151 100%)',
-          footerBg: 'linear-gradient(135deg, #374151 0%, #2D3748 100%)',
-          border: 'rgba(255,255,255,0.15)',
-          text: '#E2E8F0',
-          subText: '#A0AEC0',
-          tabActive: 'linear-gradient(135deg, #4299E1, #3182CE)',
-          tabText: '#A0AEC0',
-          accent: 'linear-gradient(45deg, #4299E1, #3182CE)',
-          shadow: '0 25px 50px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.08)'
+          bg: '#0F1115',
+          headerBg: '#0F1115',
+          tabsBg: '#0F1115',
+          contentBg: '#0F1115',
+          footerBg: '#0F1115',
+          border: '#AEB5C2',
+          text: '#D8DEE9',
+          subText: '#AEB5C2',
+          tabActive: '#4DA3FF',
+          tabText: '#AEB5C2',
+          accent: '#4DA3FF',
+          shadow: '0 25px 50px rgba(0,0,0,0.25), 0 0 0 1px rgba(174,181,194,0.2)'
         } : {
           bg: 'linear-gradient(145deg, #F8FAFC 0%, #F1F5F9 100%)',
           headerBg: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
