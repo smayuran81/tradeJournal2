@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { repository } from '../services/repository'
 import OandaTransactions from './OandaTransactions'
+import StrategyPlaybook from './StrategyPlaybook'
 
 export default function Dashboard({ user, currentView = 'dashboard' }) {
   const [stats, setStats] = useState({
@@ -70,6 +71,10 @@ export default function Dashboard({ user, currentView = 'dashboard' }) {
         <OandaTransactions />
       </div>
     )
+  }
+
+  if (currentView === 'strategy-playbook') {
+    return <StrategyPlaybook />
   }
 
   return (
