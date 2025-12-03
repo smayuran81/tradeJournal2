@@ -23,7 +23,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-quill": "^2.0.0",
-    "@mui/icons-material": "^5.15.0"
+    "@mui/icons-material": "^5.15.0",
+    "next-auth": "^4.24.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
