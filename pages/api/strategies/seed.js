@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'production'
     console.log('Seeding database:', dbName, 'Profile:', profile)
     const db = client.db(dbName)
-    const collection = db.collection('strategies')
+    const collection = db.collection('TradingStrategy')
 
     const strategies = [
       {

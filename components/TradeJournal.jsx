@@ -18,10 +18,13 @@ export default function TradeJournal() {
   const [trades, setTrades] = useState([])
   const [selected, setSelected] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
+  const [tradingStrategies, setTradingStrategies] = useState([])
+  const [strategyRuleCards, setStrategyRuleCards] = useState([])
   const fileInputRef = useRef()
 
   useEffect(() => {
     loadTrades()
+    loadTradingStrategies()
   }, [])
 
   async function loadTrades() {
@@ -37,6 +40,51 @@ export default function TradeJournal() {
         const parsed = raw ? JSON.parse(raw) : []
         setTrades(parsed)
       } catch (e) { setTrades([]) }
+    }
+  }
+
+  async function loadTradingStrategies() {
+    try {
+      const response = await fetch('/api/trading-strategies')
+      const strategies = await response.json()
+      setTradingStrategies(strategies)
+    } catch (error) {
+      console.error('Failed to load trading strategies:', error)
+    }
+  }
+
+  async function loadStrategyRuleCards(strategyName) {
+    if (!strategyName) {
+      setStrategyRuleCards([])
+      return
+    }
+    try {
+      const strategiesResponse = await fetch('/api/strategies')
+      const strategies = await strategiesResponse.json()
+      const strategy = strategies.find(s => s.name === strategyName)
+      if (!strategy || !strategy.sections) {
+        setStrategyRuleCards([])
+        return
+      }
+      const cards = []
+      strategy.sections.forEach(section => {
+        if (section.subsections) {
+          section.subsections.forEach(subsection => {
+            if (subsection.checkList && subsection.checkList.length > 0) {
+              cards.push({
+                _id: subsection.id,
+                title: subsection.name,
+                checklist: subsection.checkList
+              })
+            }
+          })
+        }
+      })
+      console.log('Loaded checklist cards:', cards)
+      setStrategyRuleCards(cards)
+    } catch (error) {
+      console.error('Failed to load strategy checklists:', error)
+      setStrategyRuleCards([])
     }
   }
 
@@ -191,7 +239,7 @@ export default function TradeJournal() {
         return value === 'Win' ? 'result-win' : value === 'Loss' ? 'result-loss' : value === 'Breakeven' ? 'result-breakeven' : 'result-open'
       }
     },
-    { field: 'pipsRR', headerName: 'RR', minWidth: 60, flex: 0.8, editable: false, valueFormatter: params => params.value ? `${params.value}R` : '' },
+    { field: 'pipsRR', headerName: 'RR', minWidth: 60, flex: 0.8, editable: false, valueFormatter: params => params.value ? `${params.value}R` : '', cellStyle: params => ({ color: params.value && Number(params.value) < 0 ? '#F95F62' : '#1E1F26', fontWeight: '600' }) },
     { field: 'profitLoss', headerName: 'P&L ($)', minWidth: 80, flex: 0.8, editable: false, cellStyle: params => ({ color: params.value > 0 ? '#00C48C' : params.value < 0 ? '#F95F62' : '#1E1F26', fontWeight: '600' }) },
     { field: 'lots', headerName: 'Lots', minWidth: 60, flex: 0.6, editable: true }
   ], [])
@@ -272,6 +320,7 @@ export default function TradeJournal() {
     strategy: '', trigger: '', trendDirection: '', htfBias: '', supportResistance: '', volatility: '',
     reasonForEntry: '', riskRewardRatio: '', stopLossReason: '', takeProfitReason: '', alignedWithPlan: '',
     criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false,
+    strategyChecklist: {},
     actualEntryPrice: '', actualStopLoss: '', actualTakeProfit: '', slippage: '', followedPlan: 'Yes', entryTiming: 'On Time', fomoEntry: 'No',
     rrAchieved: '', pipsGainedLost: '', profitLossAmount: '', timeInTrade: '',
     whatWentWell: '', whatWentWrong: '', exitAccordingToPlan: 'Yes', earlyExitEmotions: 'No', movedStopTooSoon: 'No', heldTooLong: 'No', marketBehaviorAlignment: 'Yes', wouldTakeAgain: 'Yes', emotionalFactors: [],
@@ -380,6 +429,7 @@ export default function TradeJournal() {
       followedRules: creating.followedRules || 'Yes',
       planUpdateRequired: creating.planUpdateRequired || 'No',
       mistakePatterns: creating.mistakePatterns || '',
+      strategyChecklist: creating.strategyChecklist || {},
       status: 'open',
       result: computedResult,
       date: dateIso
@@ -396,7 +446,7 @@ export default function TradeJournal() {
       }
       // Reload trades from database to get the latest data
       await loadTrades()
-      setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', date: '', result: 'Open', entryTime: '', exitTime: '', timeframe: '', direction: '', positionSize: '', broker: '', strategy: '', trigger: '', trendDirection: '', htfBias: '', supportResistance: '', volatility: '', reasonForEntry: '', riskRewardRatio: '', stopLossReason: '', takeProfitReason: '', alignedWithPlan: '', criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false, actualEntryPrice: '', actualStopLoss: '', actualTakeProfit: '', slippage: '', followedPlan: 'Yes', entryTiming: 'On Time', fomoEntry: 'No', rrAchieved: '', pipsGainedLost: '', profitLossAmount: '', timeInTrade: '', whatWentWell: '', whatWentWrong: '', exitAccordingToPlan: 'Yes', earlyExitEmotions: 'No', movedStopTooSoon: 'No', heldTooLong: 'No', marketBehaviorAlignment: 'Yes', wouldTakeAgain: 'Yes', emotionalFactors: [], moodBeforeTrade: '', confidenceLevel: '5', distractionLevel: 'Low', emotionalTriggers: '', thingToImprove: '', followedRules: 'Yes', planUpdateRequired: 'No', mistakePatterns: '' })
+      setCreating({ pair: '', entryPrice: '', exitPrice: '', stopLoss: '', takeProfit: '', notes: '', date: '', result: 'Open', entryTime: '', exitTime: '', timeframe: '', direction: '', positionSize: '', broker: '', strategy: '', trigger: '', trendDirection: '', htfBias: '', supportResistance: '', volatility: '', reasonForEntry: '', riskRewardRatio: '', stopLossReason: '', takeProfitReason: '', alignedWithPlan: '', criteriaCheck1: false, criteriaCheck2: false, criteriaCheck3: false, criteriaCheck4: false, criteriaCheck5: false, strategyChecklist: {}, actualEntryPrice: '', actualStopLoss: '', actualTakeProfit: '', slippage: '', followedPlan: 'Yes', entryTiming: 'On Time', fomoEntry: 'No', rrAchieved: '', pipsGainedLost: '', profitLossAmount: '', timeInTrade: '', whatWentWell: '', whatWentWrong: '', exitAccordingToPlan: 'Yes', earlyExitEmotions: 'No', movedStopTooSoon: 'No', heldTooLong: 'No', marketBehaviorAlignment: 'Yes', wouldTakeAgain: 'Yes', emotionalFactors: [], moodBeforeTrade: '', confidenceLevel: '5', distractionLevel: 'Low', emotionalTriggers: '', thingToImprove: '', followedRules: 'Yes', planUpdateRequired: 'No', mistakePatterns: '' })
       setEditingTrade(null)
       setSelected(t)
       setModalOpen(false)
@@ -773,9 +823,13 @@ export default function TradeJournal() {
                   thingToImprove: trade.thingToImprove || '',
                   followedRules: trade.followedRules || 'Yes',
                   planUpdateRequired: trade.planUpdateRequired || 'No',
-                  mistakePatterns: trade.mistakePatterns || ''
+                  mistakePatterns: trade.mistakePatterns || '',
+                  strategyChecklist: trade.strategyChecklist || {}
                 })
                 setEditingTrade(trade)
+                if (trade.strategy) {
+                  loadStrategyRuleCards(trade.strategy)
+                }
                 setModalOpen(true)
               }}
               getRowClass={getRowClass}
@@ -1056,53 +1110,61 @@ export default function TradeJournal() {
               >
                 2. Strategy
               </button>
+              {creating.strategy && strategyRuleCards.length > 0 && (
+                <button 
+                  onClick={() => setActiveTab(10)}
+                  style={{padding:'8px 12px',background:activeTab === 10 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 10 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 10 ? 600 : 400,color:activeTab === 10 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
+                >
+                  Strategy Checklist
+                </button>
+              )}
               <button 
                 onClick={() => setActiveTab(2)}
                 style={{padding:'8px 12px',background:activeTab === 2 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 2 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 2 ? 600 : 400,color:activeTab === 2 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                3. Prices
+                3. Prices & Levels
               </button>
               <button 
                 onClick={() => setActiveTab(3)}
                 style={{padding:'8px 12px',background:activeTab === 3 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 3 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 3 ? 600 : 400,color:activeTab === 3 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                4. Notes
+                4. Exit Management
               </button>
               <button 
                 onClick={() => setActiveTab(4)}
                 style={{padding:'8px 12px',background:activeTab === 4 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 4 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 4 ? 600 : 400,color:activeTab === 4 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                4. Trade Results
+                5. Notes & Analysis
               </button>
               <button 
                 onClick={() => setActiveTab(5)}
                 style={{padding:'8px 12px',background:activeTab === 5 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 5 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 5 ? 600 : 400,color:activeTab === 5 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                5. Execution
+                6. Execution
               </button>
               <button 
                 onClick={() => setActiveTab(6)}
                 style={{padding:'8px 12px',background:activeTab === 6 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 6 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 6 ? 600 : 400,color:activeTab === 6 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                6. Outcome
+                7. Outcome
               </button>
               <button 
                 onClick={() => setActiveTab(7)}
                 style={{padding:'8px 12px',background:activeTab === 7 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 7 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 7 ? 600 : 400,color:activeTab === 7 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                7. Post-Analysis
+                8. Post-Analysis
               </button>
               <button 
                 onClick={() => setActiveTab(8)}
                 style={{padding:'8px 12px',background:activeTab === 8 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 8 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 8 ? 600 : 400,color:activeTab === 8 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                8. Psychology
+                9. Psychology
               </button>
               <button 
                 onClick={() => setActiveTab(9)}
                 style={{padding:'8px 12px',background:activeTab === 9 ? 'white' : 'transparent',border:'none',borderBottom:activeTab === 9 ? '2px solid #3b82f6' : '2px solid transparent',cursor:'pointer',fontWeight:activeTab === 9 ? 600 : 400,color:activeTab === 9 ? '#3b82f6' : '#64748b',fontSize:12,whiteSpace:'nowrap'}}
               >
-                9. Lessons
+                10. Lessons
               </button>
             </div>
 
@@ -1188,18 +1250,11 @@ export default function TradeJournal() {
                   <div style={{display:'flex',gap:12}}>
                     <div style={{flex:1}}>
                       <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Trading Strategy</label>
-                      <select value={creating.strategy} onChange={e => setCreating(c => ({ ...c, strategy: e.target.value }))} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
+                      <select value={creating.strategy} onChange={e => { console.log('Strategy selected:', e.target.value); setCreating(c => ({ ...c, strategy: e.target.value })); loadStrategyRuleCards(e.target.value) }} style={{padding:'10px 12px',borderRadius:'8px',border:'1px solid #d1d5db',width:'100%',fontSize:14,background:'white'}}>
                         <option value="">Select Strategy</option>
-                        <option value="EMA Crossover">EMA Crossover</option>
-                        <option value="Support/Resistance Breakout">Support/Resistance Breakout</option>
-                        <option value="Trend Following">Trend Following</option>
-                        <option value="Mean Reversion">Mean Reversion</option>
-                        <option value="Breakout & Retest">Breakout & Retest</option>
-                        <option value="Fibonacci Retracement">Fibonacci Retracement</option>
-                        <option value="Price Action">Price Action</option>
-                        <option value="Scalping">Scalping</option>
-                        <option value="Swing Trading">Swing Trading</option>
-                        <option value="News Trading">News Trading</option>
+                        {tradingStrategies.map(strategy => (
+                          <option key={strategy._id} value={strategy.name}>{strategy.name}</option>
+                        ))}
                       </select>
                     </div>
                     <div style={{flex:1}}>
@@ -1755,6 +1810,60 @@ export default function TradeJournal() {
                 </div>
               )}
 
+              {activeTab === 10 && (
+                <div style={{display:'flex',flexDirection:'column',gap:16}}>
+                  <div style={{background:'#dbeafe',padding:16,borderRadius:8,border:'1px solid #3b82f6'}}>
+                    <div style={{fontWeight:600,color:'#1e40af',marginBottom:8}}>Strategy Checklist - {creating.strategy}</div>
+                    <div style={{fontSize:13,color:'#1e40af'}}>Verify all criteria from your strategy playbook</div>
+                  </div>
+
+                  {strategyRuleCards.map(card => (
+                    <div key={card._id} style={{background:'#f8fafc',padding:16,borderRadius:8,border:'1px solid #e2e8f0'}}>
+                      <div style={{fontWeight:600,fontSize:14,color:'#1e293b',marginBottom:12}}>{card.title}</div>
+                      {card.checklist && card.checklist.length > 0 && (
+                        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                          {card.checklist.map(item => (
+                            <label key={item.id} style={{display:'flex',alignItems:'center',gap:12,padding:8,background:'white',borderRadius:6,cursor:'pointer',border:'1px solid #e5e7eb'}}>
+                              <div style={{display:'flex',gap:8,flex:1}}>
+                                <span style={{fontSize:14,color:'#374151'}}>{item.text}</span>
+                              </div>
+                              <div style={{display:'flex',gap:8}}>
+                                <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer'}}>
+                                  <input 
+                                    type="radio" 
+                                    name={`${card._id}-${item.id}`}
+                                    checked={creating.strategyChecklist[`${card._id}-${item.id}`] === 'yes'}
+                                    onChange={() => setCreating(c => ({ ...c, strategyChecklist: { ...c.strategyChecklist, [`${card._id}-${item.id}`]: 'yes' } }))}
+                                    style={{width:16,height:16}}
+                                  />
+                                  <span style={{fontSize:13,color:'#059669',fontWeight:500}}>Yes</span>
+                                </label>
+                                <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer'}}>
+                                  <input 
+                                    type="radio" 
+                                    name={`${card._id}-${item.id}`}
+                                    checked={creating.strategyChecklist[`${card._id}-${item.id}`] === 'no'}
+                                    onChange={() => setCreating(c => ({ ...c, strategyChecklist: { ...c.strategyChecklist, [`${card._id}-${item.id}`]: 'no' } }))}
+                                    style={{width:16,height:16}}
+                                  />
+                                  <span style={{fontSize:13,color:'#dc2626',fontWeight:500}}>No</span>
+                                </label>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {strategyRuleCards.length === 0 && (
+                    <div style={{padding:20,textAlign:'center',color:'#64748b',fontStyle:'italic'}}>
+                      No checklist items found for this strategy. Add rule cards in the Strategy Playbook.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {activeTab === 9 && (
                 <div style={{display:'flex',flexDirection:'column',gap:16}}>
                   <div style={{background:'#fef2f2',padding:16,borderRadius:8,border:'1px solid #ef4444'}}>
@@ -1808,7 +1917,7 @@ export default function TradeJournal() {
             <div style={{padding:'20px 24px',borderTop:`1px solid ${theme.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:theme.footerBg,borderRadius:'0 0 16px 16px'}}>
               <div style={{fontSize:12,color:theme.subText}}>* Required fields</div>
               <div style={{display:'flex',gap:8}}>
-                <button onClick={() => { setCreating({ pair: '', entryPrice: '', exitPrice: '', notes: '', stopLoss:'', takeProfit:'', date:'', result:'Open', entryTime:'', exitTime:'', timeframe:'', direction:'', positionSize:'', broker:'', strategy:'', trigger:'', trendDirection:'', htfBias:'', supportResistance:'', volatility:'', reasonForEntry:'', riskRewardRatio:'', stopLossReason:'', takeProfitReason:'', alignedWithPlan:'', criteriaCheck1:false, criteriaCheck2:false, criteriaCheck3:false, criteriaCheck4:false, criteriaCheck5:false, actualEntryPrice:'', actualStopLoss:'', actualTakeProfit:'', slippage:'', followedPlan:'Yes', entryTiming:'On Time', fomoEntry:'No', rrAchieved:'', pipsGainedLost:'', profitLossAmount:'', timeInTrade:'', whatWentWell:'', whatWentWrong:'', exitAccordingToPlan:'Yes', earlyExitEmotions:'No', movedStopTooSoon:'No', heldTooLong:'No', marketBehaviorAlignment:'Yes', wouldTakeAgain:'Yes', emotionalFactors:[], moodBeforeTrade:'', confidenceLevel:'5', distractionLevel:'Low', emotionalTriggers:'', thingToImprove:'', followedRules:'Yes', planUpdateRequired:'No', mistakePatterns:'' }); setEditingTrade(null); setModalOpen(false); setActiveTab(0) }} style={{padding:'10px 20px',background:'transparent',border:'1px solid #d1d5db',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:500}}>Cancel</button>
+                <button onClick={() => { setCreating({ pair: '', entryPrice: '', exitPrice: '', notes: '', stopLoss:'', takeProfit:'', date:'', result:'Open', entryTime:'', exitTime:'', timeframe:'', direction:'', positionSize:'', broker:'', strategy:'', trigger:'', trendDirection:'', htfBias:'', supportResistance:'', volatility:'', reasonForEntry:'', riskRewardRatio:'', stopLossReason:'', takeProfitReason:'', alignedWithPlan:'', criteriaCheck1:false, criteriaCheck2:false, criteriaCheck3:false, criteriaCheck4:false, criteriaCheck5:false, strategyChecklist:{}, actualEntryPrice:'', actualStopLoss:'', actualTakeProfit:'', slippage:'', followedPlan:'Yes', entryTiming:'On Time', fomoEntry:'No', rrAchieved:'', pipsGainedLost:'', profitLossAmount:'', timeInTrade:'', whatWentWell:'', whatWentWrong:'', exitAccordingToPlan:'Yes', earlyExitEmotions:'No', movedStopTooSoon:'No', heldTooLong:'No', marketBehaviorAlignment:'Yes', wouldTakeAgain:'Yes', emotionalFactors:[], moodBeforeTrade:'', confidenceLevel:'5', distractionLevel:'Low', emotionalTriggers:'', thingToImprove:'', followedRules:'Yes', planUpdateRequired:'No', mistakePatterns:'' }); setEditingTrade(null); setModalOpen(false); setActiveTab(0); setStrategyRuleCards([]) }} style={{padding:'10px 20px',background:'transparent',border:'1px solid #d1d5db',borderRadius:'8px',cursor:'pointer',fontSize:14,fontWeight:500}}>Cancel</button>
                 <button 
                   onClick={createTrade} 
                   disabled={!creating.pair || !creating.entryPrice || !creating.exitPrice || !creating.stopLoss || !creating.takeProfit}

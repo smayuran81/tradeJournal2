@@ -7,10 +7,10 @@ export default async function handler(req, res) {
   try {
     await client.connect()
     const profile = process.env.PROFILE || process.env.NODE_ENV
-    const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'production'
+    const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'trading'
     console.log('Connecting to database:', dbName, 'Profile:', profile)
     const db = client.db(dbName)
-    const collection = db.collection('strategies')
+    const collection = db.collection('TradingStrategy')
 
     if (req.method === 'GET') {
       const strategies = await collection.find({}).toArray()
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
       const result = await collection.insertOne(strategy)
       res.status(201).json({ ...strategy, _id: result.insertedId })
     } else if (req.method === 'PUT') {
-      const { id, ...updates } = req.body
+      const { id, ...updates } = req.body 
       console.log('Updating strategy with ID:', id)
       console.log('Updates:', JSON.stringify(updates, null, 2))
       const result = await collection.updateOne(

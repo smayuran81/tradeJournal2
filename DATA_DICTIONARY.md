@@ -14,7 +14,7 @@
 | Collection | Purpose | API Endpoints |
 |------------|---------|---------------|
 | `trades` | Trading journal entries | `/api/trades`, `/api/trades/[id]` |
-| `strategies` | Strategy playbook entries | `/api/strategies` |
+| `TradingStrategy` | Strategy playbook & dropdown entries | `/api/strategies`, `/api/trading-strategies` |
 | `rule-cards` | Strategy rule cards | `/api/rule-cards` |
 
 ---
@@ -68,7 +68,7 @@
 
 ---
 
-## 2. STRATEGIES Collection
+## 2. TRADINGSTRATEGY Collection
 
 ### Dashboard Fields → MongoDB Mapping
 
@@ -186,6 +186,35 @@ checklist: [
 
 ---
 
+## 4. TRADINGSTRATEGY Collection
+
+### Dashboard Fields → MongoDB Mapping
+
+| Dashboard Field | MongoDB Field | Type | Description | Example |
+|----------------|---------------|------|-------------|---------||
+| **Strategy ID** | `_id` | ObjectId | Auto-generated unique identifier | `ObjectId("...")` |
+| **Name** | `name` | String | Strategy name for dropdown | `"Breakout Strategy"` |
+| **Description** | `description` | String | Strategy description | `"Momentum-based breakout trading"` |
+| **Category** | `category` | String | Strategy category | `"Momentum"`, `"Price Action"` |
+| **Active** | `active` | Boolean | Whether strategy is available | `true`, `false` |
+| **Created** | `createdAt` | Date | Record creation timestamp | `new Date()` |
+| **Updated** | `updatedAt` | Date | Last modification timestamp | `new Date()` |
+
+### Trading Strategy Schema Example
+```javascript
+{
+  _id: ObjectId("..."),
+  name: "Breakout Strategy",
+  description: "Momentum-based breakout trading on key levels",
+  category: "Momentum",
+  active: true,
+  createdAt: new Date(),
+  updatedAt: new Date()
+}
+```
+
+---
+
 ## API Endpoints & Operations
 
 ### Trades API (`/api/trades`)
@@ -194,7 +223,7 @@ checklist: [
 - **PUT**: Update existing trade
 - **DELETE**: Remove trade
 
-### Strategies API (`/api/strategies`)
+### Strategies API (`/api/strategies`) - Uses TradingStrategy Collection
 - **GET**: Fetch all strategies
 - **POST**: Create new strategy
 - **PUT**: Update strategy (sections, description, etc.)
@@ -205,6 +234,12 @@ checklist: [
 - **POST**: Create new rule card
 - **PUT**: Update card content/checklist
 - **DELETE**: Remove rule card
+
+### Trading Strategies API (`/api/trading-strategies`)
+- **GET**: Fetch all active trading strategies (sorted by name)
+- **POST**: Create new trading strategy
+- **PUT**: Update strategy details
+- **DELETE**: Remove trading strategy
 
 ---
 
@@ -222,6 +257,9 @@ TRADES ←→ USER (userId isolation)
 RULE-CARDS ←→ STRATEGIES (strategyId)
 RULE-CARDS ←→ SECTIONS (sectionId)
 RULE-CARDS ←→ SUBSECTIONS (subsectionId)
+
+TRADES ←→ TRADINGSTRATEGY (strategy name reference)
+TRADINGSTRATEGY ←→ STRATEGIES (name matching for playbook integration)
 ```
 
 ---
@@ -258,3 +296,9 @@ RULE-CARDS ←→ SUBSECTIONS (subsectionId)
 - `sectionId`: Must exist in parent strategy sections
 - `title`: Required for card identification
 - `checklist`: Array of objects with id/text/checked
+
+### Trading Strategies
+- `name`: Required, unique strategy name
+- `description`: Strategy overview text
+- `category`: Strategy classification
+- `active`: Boolean flag for availability in dropdowns
