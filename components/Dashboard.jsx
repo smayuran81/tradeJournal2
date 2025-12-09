@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react'
 import { repository } from '../services/repository'
 import OandaTransactions from './OandaTransactions'
 import StrategyPlaybook from './StrategyPlaybook'
+import TradeJournal from './TradeJournal'
 
-export default function Dashboard({ user, currentView = 'strategy-playbook' }) {
+export default function Dashboard({ user, currentView = 'strategy-playbook', onMonthClick, monthFilter }) {
   const [stats, setStats] = useState({
     totalTrades: 0,
     winRate: 0,
     totalProfit: 0,
     bestTrade: 0,
     worstTrade: 0,
-    recentTrades: []
+    recentTrades: [],
+    monthlyStats: [],
+    equityCurve: []
   })
   const [loading, setLoading] = useState(true)
 
@@ -41,13 +44,59 @@ export default function Dashboard({ user, currentView = 'strategy-playbook' }) {
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 5)
 
+      // Calculate monthly stats based on entry date
+      const monthlyData = {}
+      trades.forEach(trade => {
+        const entryDate = trade.entryTime || trade.date
+        if (!entryDate) return
+        
+        const date = new Date(entryDate)
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { totalR: 0, trades: 0, wins: 0, losses: 0 }
+        }
+        
+        const rValue = trade.rrAchieved ? parseFloat(trade.rrAchieved) : 0
+        monthlyData[monthKey].totalR += rValue
+        monthlyData[monthKey].trades += 1
+        if (trade.result === 'Win') monthlyData[monthKey].wins += 1
+        if (trade.result === 'Loss') monthlyData[monthKey].losses += 1
+      })
+
+      const monthlyStats = Object.entries(monthlyData)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, data]) => ({
+          month,
+          totalR: data.totalR.toFixed(2),
+          trades: data.trades,
+          winRate: data.trades > 0 ? Math.round((data.wins / data.trades) * 100) : 0
+        }))
+
+      // Calculate equity curve
+      const sortedTrades = trades
+        .filter(t => t.entryTime || t.date)
+        .sort((a, b) => new Date(a.entryTime || a.date) - new Date(b.entryTime || b.date))
+      
+      let cumulativeR = 0
+      const equityCurve = sortedTrades.map(trade => {
+        const rValue = trade.rrAchieved ? parseFloat(trade.rrAchieved) : 0
+        cumulativeR += rValue
+        return {
+          date: new Date(trade.entryTime || trade.date).toLocaleDateString(),
+          equity: cumulativeR.toFixed(2)
+        }
+      })
+
       setStats({
         totalTrades,
         winRate,
         totalProfit: Math.round(totalProfit * 10000) / 10000,
         bestTrade: Math.round(bestTrade * 10000) / 10000,
         worstTrade: Math.round(worstTrade * 10000) / 10000,
-        recentTrades
+        recentTrades,
+        monthlyStats,
+        equityCurve
       })
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
@@ -77,6 +126,10 @@ export default function Dashboard({ user, currentView = 'strategy-playbook' }) {
     return <StrategyPlaybook />
   }
 
+  if (currentView === 'trade-journal') {
+    return <TradeJournal monthFilter={monthFilter} />
+  }
+
   return (
     <div style={{padding:20}}>
       <h1 style={{marginBottom:30,color:'#1f2937'}}>Trading Dashboard</h1>
@@ -104,9 +157,107 @@ export default function Dashboard({ user, currentView = 'strategy-playbook' }) {
         </div>
       </div>
 
+      {/* Monthly Performance Table */}
+      <div style={{background:'white',padding:20,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.1)',marginBottom:20}}>
+        <h3 style={{marginBottom:20,color:'#1f2937',fontSize:18,fontWeight:700}}>📊 Monthly Performance</h3>
+        {stats.monthlyStats.length > 0 ? (
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead>
+                <tr style={{borderBottom:'2px solid #e5e7eb'}}>
+                  <th style={{padding:'12px',textAlign:'left',fontWeight:600,color:'#374151'}}>Month</th>
+                  <th style={{padding:'12px',textAlign:'right',fontWeight:600,color:'#374151'}}>Total R</th>
+                  <th style={{padding:'12px',textAlign:'right',fontWeight:600,color:'#374151'}}>Trades</th>
+                  <th style={{padding:'12px',textAlign:'right',fontWeight:600,color:'#374151'}}>Win Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.monthlyStats.map((stat, idx) => (
+                  <tr 
+                    key={stat.month} 
+                    onClick={() => onMonthClick && onMonthClick(stat.month)}
+                    style={{
+                      borderBottom:'1px solid #f3f4f6',
+                      background:idx % 2 === 0 ? '#ffffff' : '#f9fafb',
+                      cursor: onMonthClick ? 'pointer' : 'default',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => onMonthClick && (e.currentTarget.style.background = '#e5e7eb')}
+                    onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f9fafb'}
+                  >
+                    <td style={{padding:'12px',fontWeight:500,color:onMonthClick ? '#3b82f6' : 'inherit'}}>{stat.month}</td>
+                    <td style={{padding:'12px',textAlign:'right',fontWeight:600,color:parseFloat(stat.totalR) >= 0 ? '#10b981' : '#ef4444'}}>
+                      {parseFloat(stat.totalR) >= 0 ? '+' : ''}{stat.totalR}R
+                    </td>
+                    <td style={{padding:'12px',textAlign:'right'}}>{stat.trades}</td>
+                    <td style={{padding:'12px',textAlign:'right',fontWeight:500}}>{stat.winRate}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{textAlign:'center',color:'#6b7280',padding:40}}>No monthly data available</div>
+        )}
+      </div>
+
+      {/* Equity Curve */}
+      <div style={{background:'white',padding:20,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.1)',marginBottom:20}}>
+        <h3 style={{marginBottom:20,color:'#1f2937',fontSize:18,fontWeight:700}}>📈 Equity Curve (R Multiple)</h3>
+        {stats.equityCurve.length > 0 ? (
+          <div style={{position:'relative',height:300,padding:'20px 0'}}>
+            <svg width="100%" height="100%" style={{overflow:'visible'}}>
+              {stats.equityCurve.map((point, idx) => {
+                if (idx === 0) return null
+                const prevPoint = stats.equityCurve[idx - 1]
+                const x1 = (idx - 1) / (stats.equityCurve.length - 1) * 100
+                const x2 = idx / (stats.equityCurve.length - 1) * 100
+                const maxEquity = Math.max(...stats.equityCurve.map(p => parseFloat(p.equity)))
+                const minEquity = Math.min(...stats.equityCurve.map(p => parseFloat(p.equity)))
+                const range = maxEquity - minEquity || 1
+                const y1 = 90 - ((parseFloat(prevPoint.equity) - minEquity) / range * 80)
+                const y2 = 90 - ((parseFloat(point.equity) - minEquity) / range * 80)
+                return (
+                  <line
+                    key={idx}
+                    x1={`${x1}%`}
+                    y1={`${y1}%`}
+                    x2={`${x2}%`}
+                    y2={`${y2}%`}
+                    stroke="#3b82f6"
+                    strokeWidth="2"
+                  />
+                )
+              })}
+              {stats.equityCurve.map((point, idx) => {
+                const x = idx / (stats.equityCurve.length - 1) * 100
+                const maxEquity = Math.max(...stats.equityCurve.map(p => parseFloat(p.equity)))
+                const minEquity = Math.min(...stats.equityCurve.map(p => parseFloat(p.equity)))
+                const range = maxEquity - minEquity || 1
+                const y = 90 - ((parseFloat(point.equity) - minEquity) / range * 80)
+                return (
+                  <circle
+                    key={idx}
+                    cx={`${x}%`}
+                    cy={`${y}%`}
+                    r="4"
+                    fill="#3b82f6"
+                  />
+                )
+              })}
+            </svg>
+            <div style={{marginTop:10,fontSize:12,color:'#6b7280',textAlign:'center'}}>
+              Current: {stats.equityCurve[stats.equityCurve.length - 1]?.equity}R
+            </div>
+          </div>
+        ) : (
+          <div style={{textAlign:'center',color:'#6b7280',padding:40}}>No equity data available</div>
+        )}
+      </div>
+
       {/* Recent Trades */}
       <div style={{background:'white',padding:20,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.1)'}}>
-        <h3 style={{marginBottom:20,color:'#1f2937'}}>Recent Trades</h3>
+        <h3 style={{marginBottom:20,color:'#1f2937',fontSize:18,fontWeight:700}}>Recent Trades</h3>
         {stats.recentTrades.length > 0 ? (
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
             {stats.recentTrades.map(trade => (

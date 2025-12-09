@@ -15,6 +15,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [currentView, setCurrentView] = useState('dashboard')
+  const [monthFilter, setMonthFilter] = useState(null)
 
   useEffect(() => {
     fetch('/api/auth/session')
@@ -58,7 +59,15 @@ export default function Home() {
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {sidebarOpen && <Sidebar open={sidebarOpen} onNavigate={setCurrentView} onClose={() => setSidebarOpen(false)} isAdmin={user.username === 'admin'} />}
         <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-          <Dashboard user={user} currentView={currentView} />
+          <Dashboard 
+            user={user} 
+            currentView={currentView} 
+            onMonthClick={(month) => {
+              setMonthFilter(month)
+              setCurrentView('trade-journal')
+            }}
+            monthFilter={monthFilter}
+          />
         </Box>
       </Box>
     </Box>

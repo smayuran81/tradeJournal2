@@ -14,7 +14,8 @@ const WysiwygEditor = dynamic(async () => {
 }, { ssr: false })
 
 // TradeJournal stores its own list under localStorage key `trade-journal`
-export default function TradeJournal() {
+export default function TradeJournal({ monthFilter }) {
+  console.log('TradeJournal monthFilter:', monthFilter)
   const [trades, setTrades] = useState([])
   const [selected, setSelected] = useState(null)
   const [selectedDate, setSelectedDate] = useState('')
@@ -617,6 +618,54 @@ export default function TradeJournal() {
     }
   }
 
+  function exportTrades() {
+    const exportData = trades.map(trade => {
+      const { images, ...tradeWithoutImages } = trade
+      return tradeWithoutImages
+    })
+    
+    const dataStr = JSON.stringify(exportData, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `trades-export-${new Date().toISOString().slice(0,10)}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  async function importTrades(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    try {
+      const text = await file.text()
+      const importedTrades = JSON.parse(text)
+      
+      if (!Array.isArray(importedTrades)) {
+        alert('Invalid JSON format. Expected an array of trades.')
+        return
+      }
+      
+      const confirmed = window.confirm(`Import ${importedTrades.length} trades?\n\nThis will add them to your existing trades.`)
+      if (!confirmed) return
+      
+      for (const trade of importedTrades) {
+        await repository.saveTrade(trade)
+      }
+      
+      await loadTrades()
+      alert(`Successfully imported ${importedTrades.length} trades!`)
+    } catch (error) {
+      console.error('Import failed:', error)
+      alert(`Import failed: ${error.message}`)
+    } finally {
+      e.target.value = ''
+    }
+  }
+
   // small helper to wire file input
   function onFilesChange(e) {
     const files = Array.from(e.target.files || [])
@@ -635,6 +684,7 @@ export default function TradeJournal() {
   const [uploadingImages, setUploadingImages] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
   const gridRef = useRef()
+  const importFileRef = useRef()
 
   const handleMouseDown = (e) => {
     setIsDragging(true)
@@ -738,6 +788,9 @@ export default function TradeJournal() {
             >
               {darkMode ? '☀️' : '🌙'}
             </button>
+            <button onClick={exportTrades} style={{padding:'10px 20px',background:'#3B82F6',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>📥 Export JSON</button>
+            <input ref={importFileRef} type="file" accept=".json" onChange={importTrades} style={{display:'none'}} />
+            <button onClick={() => importFileRef.current?.click()} style={{padding:'10px 20px',background:'#8B5CF6',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>📤 Import JSON</button>
             <button onClick={() => setModalOpen(true)} style={{padding:'10px 20px',background:'#00C48C',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>+ New Trade</button>
             {selected && (
               <button onClick={deleteTrade} style={{padding:'10px 20px',background:'#FF4D4F',color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}>Delete Trade</button>
@@ -751,7 +804,28 @@ export default function TradeJournal() {
           <div className="grid-wrapper ag-theme-alpine" style={{height:'100%',width:'100%'}}>
             <AgGridReact
               ref={gridRef}
-              rowData={selectedDate ? rowData.filter(r => r.tradeDate === selectedDate) : rowData}
+              rowData={(() => {
+                if (selectedDate) {
+                  return rowData.filter(r => {
+                    const tradeDate = r.raw.date ? new Date(r.raw.date).toISOString().slice(0,10) : ''
+                    return tradeDate === selectedDate
+                  })
+                }
+                if (monthFilter) {
+                  console.log('Filtering by month:', monthFilter)
+                  const filtered = rowData.filter(r => {
+                    const entryDate = r.raw.entryTime || r.raw.date
+                    if (!entryDate) return false
+                    const date = new Date(entryDate)
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                    console.log('Trade date:', entryDate, 'monthKey:', monthKey, 'matches:', monthKey === monthFilter)
+                    return monthKey === monthFilter
+                  })
+                  console.log('Filtered trades:', filtered.length, 'of', rowData.length)
+                  return filtered
+                }
+                return rowData
+              })()}
               defaultColDef={defaultColDef}
               columnDefs={columnDefs}
               rowSelection="single"
