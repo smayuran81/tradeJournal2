@@ -34,9 +34,8 @@ export default async function handler(req, res) {
     
     const { id } = req.query
     const client = await clientPromise
-    const profile = process.env.PROFILE || process.env.NODE_ENV
-    const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'trading'
-    console.log('Individual Trade API - Connecting to database:', dbName, 'Profile:', profile)
+    const dbName = 'trading'
+    console.log('Individual Trade API - Connecting to database:', dbName)
     const db = client.db(dbName)
     const collection = db.collection('trades')
 

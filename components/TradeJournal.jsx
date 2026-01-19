@@ -46,7 +46,8 @@ export default function TradeJournal({ monthFilter }) {
 
   async function loadTradingStrategies() {
     try {
-      const response = await fetch('/api/trading-strategies')
+      // Fetch from Strategy Playbook so checklists work correctly
+      const response = await fetch('/api/strategies')
       const strategies = await response.json()
       setTradingStrategies(strategies)
     } catch (error) {

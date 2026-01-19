@@ -10,9 +10,8 @@ export default async function handler(req, res) {
 
   try {
     await client.connect()
-    const profile = process.env.PROFILE || process.env.NODE_ENV
-    const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'production'
-    console.log('Seeding database:', dbName, 'Profile:', profile)
+    const dbName = 'trading'
+    console.log('Seeding database:', dbName)
     const db = client.db(dbName)
     const collection = db.collection('TradingStrategy')
 

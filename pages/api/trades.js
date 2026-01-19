@@ -36,9 +36,8 @@ export default async function handler(req, res) {
     console.log('MongoDB URI exists:', !!process.env.MONGODB_URI)
     
     const client = await clientPromise
-    const profile = process.env.PROFILE || process.env.NODE_ENV
-    const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'trading'
-    console.log('Trades API - Connecting to database:', dbName, 'Profile:', profile)
+    const dbName = 'trading'
+    console.log('Trades API - Connecting to database:', dbName)
     const db = client.db(dbName)
     const collection = db.collection('trades')
 

@@ -43,8 +43,7 @@ export default async function handler(req, res) {
 
   try {
     await client.connect()
-    const profile = process.env.PROFILE || process.env.NODE_ENV
-    const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'production'
+    const dbName = 'trading'
     const db = client.db(dbName)
     const collection = db.collection('TradingStrategy')
 

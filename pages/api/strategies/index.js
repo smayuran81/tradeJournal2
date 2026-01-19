@@ -6,9 +6,8 @@ const client = new MongoClient(uri)
 export default async function handler(req, res) {
   try {
     await client.connect()
-    const profile = process.env.PROFILE || process.env.NODE_ENV
-    const dbName = profile === 'dev' || profile === 'development' ? 'DEV' : 'trading'
-    console.log('Connecting to database:', dbName, 'Profile:', profile)
+    const dbName = 'trading'
+    console.log('Connecting to database:', dbName)
     const db = client.db(dbName)
     const collection = db.collection('TradingStrategy')
 
