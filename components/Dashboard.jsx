@@ -49,8 +49,10 @@ export default function Dashboard({ user, currentView = 'strategy-playbook', onM
       trades.forEach(trade => {
         const entryDate = trade.entryTime || trade.date
         if (!entryDate) return
-        
+
         const date = new Date(entryDate)
+        if (isNaN(date.getTime())) return // Skip invalid dates
+
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         
         if (!monthlyData[monthKey]) {

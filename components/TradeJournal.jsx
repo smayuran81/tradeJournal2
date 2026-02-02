@@ -164,11 +164,25 @@ export default function TradeJournal({ monthFilter }) {
     }
     console.log('Trade result mapping:', { id: t.id, dbResult: t.result, computedResult: result })
     
-    const tradeDate = t.date ? new Date(t.date).toLocaleDateString() : ''
-    
+    // Entry Date: date-only part from entryTime
+    const entryDate = t.entryTime ? new Date(t.entryTime).toLocaleDateString() : (t.date ? new Date(t.date).toLocaleDateString() : '')
+
+    // Entry DateTime: full entryTime from the collection
+    const entryDateTime = t.entryTime || ''
+
+    // Exit DateTime: use exitTime, or fallback to the latest exit's close time
+    let exitDateTime = t.exitTime || ''
+    if (!exitDateTime && t.exits && t.exits.length > 0) {
+      // Use the last exit entry as the latest close time
+      const lastExit = t.exits[t.exits.length - 1]
+      if (lastExit.time) exitDateTime = lastExit.time
+    }
+
     return {
       id: t.id,
-      tradeDate,
+      entryDate,
+      entryDateTime,
+      exitDateTime,
       pair: t.pair,
       direction: t.direction || '',
       timeframe: t.timeframe || '',
@@ -194,7 +208,31 @@ export default function TradeJournal({ monthFilter }) {
   }), [])
 
   const columnDefs = useMemo(() => [
-    { field: 'tradeDate', headerName: 'Date', minWidth: 90, flex: 1, editable: false },
+    { field: 'entryDate', headerName: 'Entry Date', minWidth: 100, flex: 1, editable: false },
+    {
+      field: 'entryDateTime',
+      headerName: 'Entry DateTime',
+      minWidth: 140,
+      flex: 1.2,
+      editable: false,
+      valueFormatter: params => {
+        if (!params.value) return ''
+        const d = new Date(params.value)
+        return isNaN(d.getTime()) ? params.value : d.toLocaleString()
+      }
+    },
+    {
+      field: 'exitDateTime',
+      headerName: 'Exit DateTime',
+      minWidth: 140,
+      flex: 1.2,
+      editable: false,
+      valueFormatter: params => {
+        if (!params.value) return ''
+        const d = new Date(params.value)
+        return isNaN(d.getTime()) ? params.value : d.toLocaleString()
+      }
+    },
     { field: 'pair', headerName: 'Pair', minWidth: 80, flex: 1, editable: true },
     { 
       field: 'direction', 
