@@ -876,6 +876,17 @@ export default function TradeJournal({ monthFilter }) {
               ariaLabel="Trading Journal Grid"
               onRowDoubleClicked={params => {
                 const trade = params.data.raw
+                // Helper to format Date to datetime-local format (YYYY-MM-DDTHH:MM)
+                const formatDateTimeLocal = (date) => {
+                  if (!date) return ''
+                  const d = new Date(date)
+                  if (isNaN(d.getTime())) return ''
+                  return d.toISOString().slice(0, 16)
+                }
+                // Entry time: use entryTime, fallback to createdAt
+                const entryTimeValue = trade.entryTime || formatDateTimeLocal(trade.createdAt)
+                // Exit time: use exitTime, fallback to updatedAt when trade is closed
+                const exitTimeValue = trade.exitTime || (trade.result && trade.result !== 'Open' ? formatDateTimeLocal(trade.updatedAt) : '')
                 setCreating({
                   pair: trade.pair || '',
                   entryPrice: trade.entryPrice || '',
@@ -885,8 +896,8 @@ export default function TradeJournal({ monthFilter }) {
                   notes: trade.notes || '',
                   date: trade.date ? new Date(trade.date).toISOString().slice(0,10) : '',
                   result: trade.result || 'Open',
-                  entryTime: trade.entryTime || '',
-                  exitTime: trade.exitTime || '',
+                  entryTime: entryTimeValue,
+                  exitTime: exitTimeValue,
                   timeframe: trade.timeframe || '',
                   direction: trade.direction || '',
                   positionSize: trade.positionSize || '',
