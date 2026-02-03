@@ -33,8 +33,9 @@
 | **Exit Price** | `exitPrice` | String/Number | Final/overall exit price | `"1.0945"` |
 | **Stop Loss** | `stopLoss` | String/Number | Stop loss level | `"1.0900"` |
 | **Take Profit** | `takeProfit` | String/Number | Take profit level | `"1.0950"` |
-| **Entry Date & Time** | `entryTime` | String | When the trade was initiated | `"2026-01-27T10:34"` |
-| **Exit Date & Time** | `exitTime` | String | When the trade was closed | `"2026-01-27T15:06"` |
+| **Entry Date** | `entryTime` (date part) | String | Date-only part of entry time, shown in grid "Entry Date" column | `"1/27/2026"` |
+| **Entry Date & Time** | `entryTime` | String | Full entry datetime, shown in grid "Entry DateTime" column | `"2026-01-27T10:34"` |
+| **Exit Date & Time** | `exitTime` | String | When the trade was closed, shown in grid "Exit DateTime" column. Falls back to last exit's close time if `exitTime` is not set. | `"2026-01-27T15:06"` |
 | **Result** | `result` | String | Trade outcome | `"Win"`, `"Loss"`, `"Breakeven"`, `"Open"` |
 | **Lots** | `lots` | String/Number | Total position size | `"1788"` |
 | **Exits** | `exits` | Array | Multiple partial exit points | `[{price, lots, profitLoss}]` |
@@ -46,6 +47,26 @@
 | **Date** | `date` | Date | When the journal entry was created | `"2026-01-29T06:07:00.910Z"` |
 | **Created** | `createdAt` | Date | Record creation timestamp | `new Date()` |
 | **Updated** | `updatedAt` | Date | Last modification timestamp | `new Date()` |
+
+### Trade Journal Grid Columns → Data Source
+
+| Grid Column | Source Field | Derivation |
+|-------------|-------------|------------|
+| **Entry Date** | `entryTime` (fallback: `date`) | Date-only part via `toLocaleDateString()` |
+| **Entry DateTime** | `entryTime` | Full datetime via `toLocaleString()` |
+| **Exit DateTime** | `exitTime` (fallback: last `exits[].time`) | Full datetime via `toLocaleString()` |
+| **Pair** | `pair` | Direct |
+| **Trade Direction** | `direction` | Direct |
+| **Timeframe** | `timeframe` | Direct |
+| **Setup** | `strategy` | Direct |
+| **Entry Price** | `entryPrice` | Direct |
+| **Stop Loss** | `stopLoss` | Direct |
+| **Take Profit** | `takeProfit` | Direct |
+| **Exit Price** | `exitPrice` | Direct |
+| **Trade Result** | `result` | Direct or auto-computed from prices |
+| **RR** | `rrAchieved` | Direct |
+| **P&L ($)** | Computed | From exits or entry/exit/lots calculation |
+| **Lots** | `lots` | Direct |
 
 ### Trade Schema Example
 ```javascript
