@@ -6,11 +6,13 @@ import HistoryIcon from '@mui/icons-material/History'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
+import EventNoteIcon from '@mui/icons-material/EventNote'
 
 export default function Sidebar({ open = true, onNavigate, onClose }) {
   const navItems = [
     { label: 'Weekly Dashboard', icon: <DashboardIcon />, view: 'dashboard' },
     { label: 'Weekly Analysis', icon: <TimelineIcon />, view: 'wizard' },
+    { label: 'Trading Prep', icon: <EventNoteIcon />, view: 'weekly-prep' },
     { label: 'Current Analysis', icon: <AssignmentIcon />, view: 'analysis' },
     { label: 'Journal History', icon: <HistoryIcon />, view: 'history' },
     { label: 'Trade Journal', icon: <TrendingUpIcon />, view: 'trade-journal' },

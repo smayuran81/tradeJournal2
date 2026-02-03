@@ -26,20 +26,24 @@
 | Dashboard Field | MongoDB Field | Type | Description | Example |
 |----------------|---------------|------|-------------|---------|
 | **Trade ID** | `_id` | ObjectId | Auto-generated unique identifier | `ObjectId("...")` |
-| **User** | `userId` | String | User identifier for data isolation | `"admin"` |
+| **User** | `userId` | String | User identifier for data isolation | `"user_trader1"` |
 | **Pair** | `pair` | String | Currency pair | `"EUR/USD"` |
+| **Direction** | `direction` | String | Trade direction | `"Long"`, `"Short"` |
 | **Entry Price** | `entryPrice` | String/Number | Trade entry price | `"1.0923"` |
-| **Exit Price** | `exitPrice` | String/Number | Trade exit price | `"1.0945"` |
+| **Exit Price** | `exitPrice` | String/Number | Final/overall exit price | `"1.0945"` |
 | **Stop Loss** | `stopLoss` | String/Number | Stop loss level | `"1.0900"` |
 | **Take Profit** | `takeProfit` | String/Number | Take profit level | `"1.0950"` |
-| **Entry Time** | `entryTime` | Date/String | Trade entry timestamp | `"2024-01-15T10:30:00Z"` |
-| **Exit Time** | `exitTime` | Date/String | Trade exit timestamp | `"2024-01-15T14:20:00Z"` |
+| **Entry Date & Time** | `entryTime` | String | When the trade was initiated | `"2026-01-27T10:34"` |
+| **Exit Date & Time** | `exitTime` | String | When the trade was closed | `"2026-01-27T15:06"` |
 | **Result** | `result` | String | Trade outcome | `"Win"`, `"Loss"`, `"Breakeven"`, `"Open"` |
-| **Lots** | `lots` | Number | Position size | `0.1` |
+| **Lots** | `lots` | String/Number | Total position size | `"1788"` |
+| **Exits** | `exits` | Array | Multiple partial exit points | `[{price, lots, profitLoss}]` |
 | **P&L** | `pnl` | Number | Profit/Loss amount | `22.50` |
 | **RR** | `rr` | String | Risk-Reward ratio | `"2.5R"`, `"0R"` |
+| **RR Achieved** | `rrAchieved` | String | Actual R-multiple achieved | `"1.19"` |
 | **Notes** | `notes` | String | Trade analysis notes | `"Strong bullish momentum"` |
 | **Images** | `images` | Array | Cloudinary image URLs | `["url1", "url2"]` |
+| **Date** | `date` | Date | When the journal entry was created | `"2026-01-29T06:07:00.910Z"` |
 | **Created** | `createdAt` | Date | Record creation timestamp | `new Date()` |
 | **Updated** | `updatedAt` | Date | Last modification timestamp | `new Date()` |
 
@@ -47,20 +51,26 @@
 ```javascript
 {
   _id: ObjectId("..."),
-  userId: "admin",
-  pair: "EUR/USD",
-  entryPrice: "1.0923",
-  exitPrice: "1.0945", 
-  stopLoss: "1.0900",
-  takeProfit: "1.0950",
-  entryTime: "2024-01-15T10:30:00Z",
-  exitTime: "2024-01-15T14:20:00Z",
+  userId: "user_trader1",
+  pair: "NZD/USD",
+  direction: "Long",
+  entryPrice: "0.5971",
+  exitPrice: "0.6005",
+  stopLoss: "0.5948",
+  takeProfit: "0.6007",
+  entryTime: "2026-01-27T10:34",       // when the trade was initiated
+  exitTime: "2026-01-27T15:06",         // when the trade was closed
   result: "Win",
-  lots: 0.1,
-  pnl: 22.50,
-  rr: "2.5R",
+  lots: "1788",
+  exits: [                               // multiple partial exits
+    { price: "0.5991", lots: "884", profitLoss: "1.33" },
+    { price: "0.6005", lots: "884", profitLoss: "2.20" }
+  ],
+  rrAchieved: "1.19",
+  riskRewardRatio: "1:1.19",
   notes: "Strong bullish momentum",
   images: ["cloudinary_url_1", "cloudinary_url_2"],
+  date: new Date(),                      // when the journal entry was created
   createdAt: new Date(),
   updatedAt: new Date()
 }

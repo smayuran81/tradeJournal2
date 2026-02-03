@@ -3,6 +3,7 @@ import { repository } from '../services/repository'
 import OandaTransactions from './OandaTransactions'
 import StrategyPlaybook from './StrategyPlaybook'
 import TradeJournal from './TradeJournal'
+import WeeklyPrep from './WeeklyPrep'
 
 export default function Dashboard({ user, currentView = 'strategy-playbook', onMonthClick, monthFilter }) {
   const [stats, setStats] = useState({
@@ -49,8 +50,10 @@ export default function Dashboard({ user, currentView = 'strategy-playbook', onM
       trades.forEach(trade => {
         const entryDate = trade.entryTime || trade.date
         if (!entryDate) return
-        
+
         const date = new Date(entryDate)
+        if (isNaN(date.getTime())) return // Skip invalid dates
+
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
         
         if (!monthlyData[monthKey]) {
@@ -128,6 +131,10 @@ export default function Dashboard({ user, currentView = 'strategy-playbook', onM
 
   if (currentView === 'trade-journal') {
     return <TradeJournal monthFilter={monthFilter} />
+  }
+
+  if (currentView === 'weekly-prep') {
+    return <WeeklyPrep />
   }
 
   return (
