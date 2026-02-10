@@ -4,6 +4,7 @@ import OandaTransactions from './OandaTransactions'
 import StrategyPlaybook from './StrategyPlaybook'
 import TradeJournal from './TradeJournal'
 import WeeklyPrep from './WeeklyPrep'
+import DailyReview from './DailyReview'
 
 export default function Dashboard({ user, currentView = 'strategy-playbook', onMonthClick, monthFilter }) {
   const [stats, setStats] = useState({
@@ -135,6 +136,10 @@ export default function Dashboard({ user, currentView = 'strategy-playbook', onM
 
   if (currentView === 'weekly-prep') {
     return <WeeklyPrep />
+  }
+
+  if (currentView === 'daily-review') {
+    return <DailyReview />
   }
 
   return (

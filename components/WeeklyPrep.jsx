@@ -1,69 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
+import prepConfig from '../data/trading-prep-config.json'
 
-// TODO: Move to database collection for dynamic management
-const PREP_TICKERS = [
-  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCAD', 'AUDUSD',
-  'NZDUSD', 'USDCHF', 'SPX500', 'NAS100', 'XAUUSD'
-]
+// Load config from JSON
+const PREP_TICKERS = prepConfig.prepTickers
+const PREP_SECTIONS = prepConfig.sections
+const STRATEGY_QUALIFIERS = prepConfig.strategyQualifiers
 
-// TODO: Move to database collection for dynamic management
-const PREP_QUESTIONS = [
-  { id: 'q1', section: 'Technical Analysis', text: 'What is the HTF (weekly/monthly) trend direction?', type: 'text' },
-  { id: 'q2', section: 'Technical Analysis', text: 'Where are the key support/resistance levels?', type: 'text' },
-  { id: 'q3', section: 'Technical Analysis', text: 'Is price at a significant level (S/R, supply/demand zone)?', type: 'boolean' },
-  { id: 'q4', section: 'Technical Analysis', text: 'Is price above or below the 10/20/50 EMA?', type: 'text' },
-  { id: 'q5', section: 'Technical Analysis', text: 'Are there any chart patterns forming (H&S, wedge, triangle)?', type: 'text' },
-  { id: 'q6', section: 'Technical Analysis', text: 'What does the LTF (4H/1H) structure look like?', type: 'text' },
-  { id: 'q7', section: 'Fundamental & News', text: 'Any high-impact news events this week for this pair?', type: 'text' },
-  { id: 'q8', section: 'Fundamental & News', text: 'Is there a central bank decision this week?', type: 'boolean' },
-  { id: 'q9', section: 'Fundamental & News', text: 'What is the current market sentiment for this pair?', type: 'text' },
-  { id: 'q10', section: 'Fundamental & News', text: 'Any geopolitical events that could impact this pair?', type: 'text' },
-  { id: 'q11', section: 'Weekly Bias', text: 'What is the overall bias for this pair?', type: 'select', options: ['Bullish', 'Bearish', 'Neutral'] },
-  { id: 'q12', section: 'Weekly Bias', text: 'Key notes / trade plan for the week', type: 'text' },
-]
-
-// TODO: Move to database collection for dynamic management
-// Each strategy has branching questions: yes/no points to next question id or 'QUALIFIED'/'NOT_QUALIFIED'
-const STRATEGY_QUALIFIERS = [
-  {
-    id: 'daily-pullback',
-    name: 'Daily Pull back',
-    questions: [
-      { id: 'dp-q1', text: 'Is price trending on the daily timeframe?', yes: 'dp-q2', no: 'NOT_QUALIFIED' },
-      { id: 'dp-q2', text: 'Is price pulling back to 10/20 EMA or key support?', yes: 'dp-q3', no: 'NOT_QUALIFIED' },
-      { id: 'dp-q3', text: 'Is there a rejection candle or reversal signal at the pullback level?', yes: 'QUALIFIED', no: 'NOT_QUALIFIED' },
-    ],
-  },
-  {
-    id: 'sr-breakout',
-    name: 'Support/Resistance Breakout',
-    questions: [
-      { id: 'sr-q1', text: 'Is price approaching a clearly defined support or resistance level?', yes: 'sr-q2', no: 'NOT_QUALIFIED' },
-      { id: 'sr-q2', text: 'Has the level been tested at least 2-3 times?', yes: 'sr-q3', no: 'NOT_QUALIFIED' },
-      { id: 'sr-q3', text: 'Is there increasing momentum (volume/candle size) into the level?', yes: 'sr-q4', no: 'NOT_QUALIFIED' },
-      { id: 'sr-q4', text: 'Is there a clean break and retest of the level?', yes: 'QUALIFIED', no: 'NOT_QUALIFIED' },
-    ],
-  },
-  {
-    id: 'pa-reversal',
-    name: 'Price Action Reversal',
-    questions: [
-      { id: 'pa-q1', text: 'Is price at a key support/resistance or supply/demand zone?', yes: 'pa-q2', no: 'NOT_QUALIFIED' },
-      { id: 'pa-q2', text: 'Is there a clear reversal candlestick pattern (engulfing, pin bar, morning/evening star)?', yes: 'pa-q3', no: 'NOT_QUALIFIED' },
-      { id: 'pa-q3', text: 'Does the HTF trend or structure support the reversal direction?', yes: 'QUALIFIED', no: 'NOT_QUALIFIED' },
-    ],
-  },
-  {
-    id: 'fib-retracement',
-    name: 'Fibonacci Retracement',
-    questions: [
-      { id: 'fib-q1', text: 'Is there a clear impulsive move to draw Fibonacci levels from?', yes: 'fib-q2', no: 'NOT_QUALIFIED' },
-      { id: 'fib-q2', text: 'Is price retracing to the 38.2%, 50%, or 61.8% level?', yes: 'fib-q3', no: 'NOT_QUALIFIED' },
-      { id: 'fib-q3', text: 'Does the fib level confluence with another support/resistance level?', yes: 'fib-q4', no: 'NOT_QUALIFIED' },
-      { id: 'fib-q4', text: 'Is there a price action confirmation signal at the fib level?', yes: 'QUALIFIED', no: 'NOT_QUALIFIED' },
-    ],
-  },
-]
+// Get all questions flattened for completion calculation
+const ALL_QUESTIONS = PREP_SECTIONS.flatMap(s => s.questions)
 
 function getWeekKey(d = new Date()) {
   const date = new Date(d)
@@ -87,6 +31,20 @@ function computeCompletionForTicker(tickerResponses) {
     if (q.type === 'boolean' && val !== undefined && val !== null) answered++
     else if (q.type === 'select' && val) answered++
     else if (q.type === 'text' && val && val.trim().length > 0) answered++
+    else if (q.type === 'ema-group' && val && Object.keys(val).length > 0) {
+      // Count as answered if at least one EMA has data
+      const hasData = q.emas.some(ema => val[ema]?.position || val[ema]?.direction)
+      if (hasData) answered++
+    }
+    else if (q.type === 'trend-group' && val && Object.keys(val).length > 0) {
+      // Count as answered if at least one timeframe has a trend
+      const hasData = q.timeframes.some(tf => val[tf])
+      if (hasData) answered++
+    }
+    else if (q.type === 'candle-analysis' && val) {
+      // Count as answered if any field has data
+      if (val.candleCount || val.overlapping !== undefined || val.extendedKeltner !== undefined) answered++
+    }
   })
   return answered
 }
@@ -96,6 +54,33 @@ function computeStatus(responses) {
   if (tickers.length === 0) return 'in-progress'
   const allComplete = tickers.every(t => computeCompletionForTicker(responses[t]) === PREP_QUESTIONS.length)
   return allComplete ? 'completed' : 'in-progress'
+}
+
+// Calculate weekly bias based on OHLC
+function calculateWeeklyBias(open, close) {
+  if (!open || !close) return null
+  const o = parseFloat(open)
+  const c = parseFloat(close)
+  if (isNaN(o) || isNaN(c)) return null
+  const threshold = Math.abs(o) * 0.001 // 0.1% threshold for neutral
+  if (c > o + threshold) return 'Bullish'
+  if (c < o - threshold) return 'Bearish'
+  return 'Neutral'
+}
+
+// Calculate monthly comparison
+function calculateMonthlyComparison(currentClose, monthlyOHLC) {
+  if (!currentClose || !monthlyOHLC) return null
+  const current = parseFloat(currentClose)
+  const { open, close, high, low } = monthlyOHLC
+  if (isNaN(current)) return null
+
+  return {
+    passedOpen: open ? { passed: true, direction: current > parseFloat(open) ? 'above' : 'below' } : null,
+    passedClose: close ? { passed: true, direction: current > parseFloat(close) ? 'above' : 'below' } : null,
+    passedHigh: high ? current > parseFloat(high) : null,
+    passedLow: low ? current < parseFloat(low) : null
+  }
 }
 
 export default function WeeklyPrep() {
@@ -720,10 +705,503 @@ export default function WeeklyPrep() {
                       })}
                     </div>
                   )}
+
+                  {question.type === 'candle-analysis' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {/* Candles above 10 EMA */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '12px 16px', borderRadius: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: '#374151', minWidth: 200 }}>How many candles above 10 EMA?</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={tickerResponses[question.id]?.candleCount || ''}
+                          onChange={e => {
+                            const currentData = tickerResponses[question.id] || {}
+                            updateResponse(activeTicker, question.id, { ...currentData, candleCount: e.target.value })
+                          }}
+                          placeholder="0"
+                          style={{
+                            width: 80, padding: '8px 12px', borderRadius: 6,
+                            border: '1px solid #d1d5db', fontSize: 14, fontFamily: 'inherit',
+                            textAlign: 'center',
+                          }}
+                        />
+                      </div>
+
+                      {/* Overlapping candles */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '12px 16px', borderRadius: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: '#374151', minWidth: 200 }}>Are they overlapping candles?</span>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {['Yes', 'No'].map(opt => {
+                            const isYes = opt === 'Yes'
+                            const isSelected = tickerResponses[question.id]?.overlapping === isYes
+                            return (
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  const currentData = tickerResponses[question.id] || {}
+                                  updateResponse(activeTicker, question.id, { ...currentData, overlapping: isYes })
+                                }}
+                                style={{
+                                  padding: '6px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                                  border: isSelected ? 'none' : '1px solid #d1d5db',
+                                  background: isSelected ? (isYes ? '#f59e0b' : '#6b7280') : 'white',
+                                  color: isSelected ? 'white' : '#374151',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {opt}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Extended beyond Keltner */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '12px 16px', borderRadius: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: '#374151', minWidth: 200 }}>Extended beyond Keltner channel?</span>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {['Yes', 'No'].map(opt => {
+                            const isYes = opt === 'Yes'
+                            const isSelected = tickerResponses[question.id]?.extendedKeltner === isYes
+                            return (
+                              <button
+                                key={opt}
+                                onClick={() => {
+                                  const currentData = tickerResponses[question.id] || {}
+                                  updateResponse(activeTicker, question.id, { ...currentData, extendedKeltner: isYes })
+                                }}
+                                style={{
+                                  padding: '6px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                                  border: isSelected ? 'none' : '1px solid #d1d5db',
+                                  background: isSelected ? (isYes ? '#ef4444' : '#10b981') : 'white',
+                                  color: isSelected ? 'white' : '#374151',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {opt}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Analysis hint */}
+                      {tickerResponses[question.id] && (tickerResponses[question.id].candleCount || tickerResponses[question.id].overlapping !== undefined || tickerResponses[question.id].extendedKeltner !== undefined) && (() => {
+                        const data = tickerResponses[question.id]
+                        const count = parseInt(data.candleCount) || 0
+                        const isHealthy = count >= 3 && count <= 8 && !data.overlapping && !data.extendedKeltner
+                        const isOverextended = data.extendedKeltner === true || count > 10
+
+                        return (
+                          <div style={{
+                            marginTop: 4, padding: '8px 14px', borderRadius: 8, fontSize: 13,
+                            background: isHealthy ? '#dcfce7' : isOverextended ? '#fee2e2' : '#fef3c7',
+                            color: isHealthy ? '#16a34a' : isOverextended ? '#dc2626' : '#d97706',
+                          }}>
+                            <span style={{ fontWeight: 600 }}>
+                              {isHealthy ? '✓ Healthy trend structure' : isOverextended ? '⚠ Overextended - caution' : '• Consolidating or mixed signals'}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+
+                  {question.type === 'trend-group' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {question.timeframes.map(tf => {
+                        const tfValue = tickerResponses[question.id]?.[tf]
+                        return (
+                          <div key={tf} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '10px 16px', borderRadius: 8 }}>
+                            <div style={{ width: 80, fontWeight: 600, fontSize: 14, color: '#374151' }}>
+                              {tf}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              {question.options.map(opt => {
+                                const isSelected = tfValue === opt
+                                const bgColor = opt === 'Bullish' ? '#10b981' : opt === 'Bearish' ? '#ef4444' : '#f59e0b'
+                                return (
+                                  <button
+                                    key={opt}
+                                    onClick={() => {
+                                      const currentData = tickerResponses[question.id] || {}
+                                      const updated = { ...currentData, [tf]: opt }
+                                      updateResponse(activeTicker, question.id, updated)
+                                    }}
+                                    style={{
+                                      padding: '6px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                                      border: isSelected ? 'none' : '1px solid #d1d5db',
+                                      background: isSelected ? bgColor : 'white',
+                                      color: isSelected ? 'white' : '#374151',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {opt}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {/* Trend Alignment Summary */}
+                      {tickerResponses[question.id] && Object.keys(tickerResponses[question.id]).length > 0 && (() => {
+                        const trendData = tickerResponses[question.id]
+                        const allBullish = question.timeframes.every(tf => trendData[tf] === 'Bullish')
+                        const allBearish = question.timeframes.every(tf => trendData[tf] === 'Bearish')
+                        const bullishCount = question.timeframes.filter(tf => trendData[tf] === 'Bullish').length
+                        const bearishCount = question.timeframes.filter(tf => trendData[tf] === 'Bearish').length
+
+                        return (
+                          <div style={{ marginTop: 4, padding: '8px 14px', background: allBullish ? '#dcfce7' : allBearish ? '#fee2e2' : '#e0f2fe', borderRadius: 8, fontSize: 13 }}>
+                            <span style={{ fontWeight: 600, color: allBullish ? '#16a34a' : allBearish ? '#dc2626' : '#0369a1' }}>
+                              {allBullish ? '✓ All timeframes Bullish' : allBearish ? '✓ All timeframes Bearish' : `${bullishCount} Bullish, ${bearishCount} Bearish`}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+
+                  {question.type === 'ema-group' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {question.emas.map(ema => {
+                        const emaData = tickerResponses[question.id]?.[ema] || {}
+                        return (
+                          <div key={ema} style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#f9fafb', padding: '12px 16px', borderRadius: 8 }}>
+                            <div style={{ width: 70, fontWeight: 600, fontSize: 14, color: '#374151' }}>
+                              EMA {ema}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 12, color: '#6b7280', marginRight: 4 }}>Price:</span>
+                              {['Above', 'Below'].map(pos => {
+                                const isSelected = emaData.position === pos
+                                return (
+                                  <button
+                                    key={pos}
+                                    onClick={() => {
+                                      const currentData = tickerResponses[question.id] || {}
+                                      const updated = { ...currentData, [ema]: { ...currentData[ema], position: pos } }
+                                      updateResponse(activeTicker, question.id, updated)
+                                    }}
+                                    style={{
+                                      padding: '4px 12px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+                                      border: isSelected ? 'none' : '1px solid #d1d5db',
+                                      background: isSelected ? (pos === 'Above' ? '#10b981' : '#ef4444') : 'white',
+                                      color: isSelected ? 'white' : '#374151',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {pos}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 12, color: '#6b7280', marginRight: 4 }}>Direction:</span>
+                              {['Pointing Up', 'Flat', 'Pointing Down'].map(dir => {
+                                const isSelected = emaData.direction === dir
+                                const bgColor = dir === 'Pointing Up' ? '#10b981' : dir === 'Pointing Down' ? '#ef4444' : '#6b7280'
+                                return (
+                                  <button
+                                    key={dir}
+                                    onClick={() => {
+                                      const currentData = tickerResponses[question.id] || {}
+                                      const updated = { ...currentData, [ema]: { ...currentData[ema], direction: dir } }
+                                      updateResponse(activeTicker, question.id, updated)
+                                    }}
+                                    style={{
+                                      padding: '4px 12px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+                                      border: isSelected ? 'none' : '1px solid #d1d5db',
+                                      background: isSelected ? bgColor : 'white',
+                                      color: isSelected ? 'white' : '#374151',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {dir === 'Pointing Up' ? '↑ Up' : dir === 'Pointing Down' ? '↓ Down' : '→ Flat'}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {/* EMA Summary */}
+                      {tickerResponses[question.id] && Object.keys(tickerResponses[question.id]).length > 0 && (() => {
+                        const emaData = tickerResponses[question.id]
+                        const allAbove = question.emas.every(e => emaData[e]?.position === 'Above')
+                        const allBelow = question.emas.every(e => emaData[e]?.position === 'Below')
+                        const allUp = question.emas.every(e => emaData[e]?.direction === 'Pointing Up')
+                        const allDown = question.emas.every(e => emaData[e]?.direction === 'Pointing Down')
+                        const upCount = question.emas.filter(e => emaData[e]?.direction === 'Pointing Up').length
+                        const aboveCount = question.emas.filter(e => emaData[e]?.position === 'Above').length
+
+                        return (
+                          <div style={{ marginTop: 8, padding: '10px 14px', background: '#e0f2fe', borderRadius: 8, fontSize: 13 }}>
+                            <span style={{ fontWeight: 600, color: '#0369a1' }}>Summary: </span>
+                            <span style={{ color: '#0c4a6e' }}>
+                              Price {allAbove ? 'above all EMAs' : allBelow ? 'below all EMAs' : `above ${aboveCount}/${question.emas.length} EMAs`}
+                              {' • '}
+                              {allUp ? 'All pointing up' : allDown ? 'All pointing down' : `${upCount}/${question.emas.length} pointing up`}
+                              {allAbove && allUp && <span style={{ marginLeft: 8, color: '#10b981', fontWeight: 700 }}>✓ Bullish alignment</span>}
+                              {allBelow && allDown && <span style={{ marginLeft: 8, color: '#ef4444', fontWeight: 700 }}>✓ Bearish alignment</span>}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           ))}
+
+          {/* ── WEEKLY PRICE ACTION SECTION ── */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{
+              fontSize: 13, fontWeight: 700, color: '#6b7280',
+              textTransform: 'uppercase', letterSpacing: 0.5,
+              marginBottom: 16, paddingBottom: 8,
+              borderBottom: '1px solid #e5e7eb',
+            }}>
+              Weekly Price Action
+            </div>
+
+            {/* Previous Week OHLC */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
+                Previous Week OHLC
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {['open', 'high', 'low', 'close'].map(field => (
+                  <div key={field}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 4, textTransform: 'capitalize' }}>
+                      {field}
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={tickerResponses.weeklyOHLC?.[field] || ''}
+                      onChange={e => {
+                        const newOHLC = { ...(tickerResponses.weeklyOHLC || {}), [field]: e.target.value }
+                        updateResponse(activeTicker, 'weeklyOHLC', newOHLC)
+                      }}
+                      placeholder={`Enter ${field}`}
+                      style={{
+                        width: '100%', padding: '10px 12px', borderRadius: 8,
+                        border: '1px solid #d1d5db', fontSize: 14, fontFamily: 'inherit',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Auto-calculated Weekly Bias */}
+              {tickerResponses.weeklyOHLC?.open && tickerResponses.weeklyOHLC?.close && (
+                <div style={{ marginTop: 12 }}>
+                  <span style={{ fontSize: 13, color: '#6b7280', marginRight: 8 }}>Calculated Bias:</span>
+                  {(() => {
+                    const bias = calculateWeeklyBias(tickerResponses.weeklyOHLC.open, tickerResponses.weeklyOHLC.close)
+                    const biasColors = { Bullish: '#10b981', Bearish: '#ef4444', Neutral: '#6b7280' }
+                    const biasBg = { Bullish: '#dcfce7', Bearish: '#fee2e2', Neutral: '#f3f4f6' }
+                    return bias ? (
+                      <span style={{
+                        display: 'inline-block', padding: '4px 12px', borderRadius: 20,
+                        fontSize: 12, fontWeight: 700,
+                        background: biasBg[bias], color: biasColors[bias],
+                      }}>
+                        {bias}
+                      </span>
+                    ) : null
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Weekly Candlestick Patterns (Multi-select) */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
+                Weekly Candlestick Patterns
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {WEEKLY_PATTERNS.map(pattern => {
+                  const selected = (tickerResponses.weeklyPatterns || []).includes(pattern)
+                  return (
+                    <button
+                      key={pattern}
+                      onClick={() => {
+                        const current = tickerResponses.weeklyPatterns || []
+                        const updated = selected
+                          ? current.filter(p => p !== pattern)
+                          : [...current, pattern]
+                        updateResponse(activeTicker, 'weeklyPatterns', updated)
+                      }}
+                      style={{
+                        padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 500,
+                        border: selected ? 'none' : '1px solid #d1d5db',
+                        background: selected ? '#3b82f6' : 'white',
+                        color: selected ? 'white' : '#374151',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {pattern}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Flag Patterns (Single-select) */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
+                Flag/Pennant Pattern
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {FLAG_PATTERNS.map(pattern => {
+                  const selected = tickerResponses.flagPattern === pattern
+                  return (
+                    <button
+                      key={pattern}
+                      onClick={() => updateResponse(activeTicker, 'flagPattern', pattern)}
+                      style={{
+                        padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                        border: selected ? 'none' : '1px solid #d1d5db',
+                        background: selected ? '#3b82f6' : 'white',
+                        color: selected ? 'white' : '#374151',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {pattern}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Support/Resistance Zones */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
+                Support/Resistance Zones
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  { key: 'weeklySupport', label: 'Hitting Weekly Support?' },
+                  { key: 'weeklyResistance', label: 'Hitting Weekly Resistance?' },
+                  { key: 'monthlySupport', label: 'Hitting Monthly Support?' },
+                  { key: 'monthlyResistance', label: 'Hitting Monthly Resistance?' },
+                ].map(({ key, label }) => {
+                  const value = tickerResponses.srZones?.[key]
+                  return (
+                    <div key={key} style={{ background: '#f9fafb', padding: 12, borderRadius: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 8 }}>{label}</div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {['Yes', 'No'].map(opt => {
+                          const isYes = opt === 'Yes'
+                          const isSelected = value === isYes
+                          return (
+                            <button
+                              key={opt}
+                              onClick={() => {
+                                const newSR = { ...(tickerResponses.srZones || {}), [key]: isYes }
+                                updateResponse(activeTicker, 'srZones', newSR)
+                              }}
+                              style={{
+                                padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                                border: isSelected ? 'none' : '1px solid #d1d5db',
+                                background: isSelected ? (isYes ? '#10b981' : '#ef4444') : 'white',
+                                color: isSelected ? 'white' : '#374151',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {opt}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Previous Month OHLC */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
+                Previous Month OHLC
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {['open', 'high', 'low', 'close'].map(field => (
+                  <div key={field}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#6b7280', marginBottom: 4, textTransform: 'capitalize' }}>
+                      {field}
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={tickerResponses.monthlyOHLC?.[field] || ''}
+                      onChange={e => {
+                        const newOHLC = { ...(tickerResponses.monthlyOHLC || {}), [field]: e.target.value }
+                        updateResponse(activeTicker, 'monthlyOHLC', newOHLC)
+                      }}
+                      placeholder={`Enter ${field}`}
+                      style={{
+                        width: '100%', padding: '10px 12px', borderRadius: 8,
+                        border: '1px solid #d1d5db', fontSize: 14, fontFamily: 'inherit',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Monthly Comparison Display */}
+              {tickerResponses.weeklyOHLC?.close && tickerResponses.monthlyOHLC && (
+                <div style={{ marginTop: 16, background: '#f9fafb', padding: 16, borderRadius: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>
+                    Monthly Level Comparison (vs Weekly Close)
+                  </div>
+                  {(() => {
+                    const comparison = calculateMonthlyComparison(tickerResponses.weeklyOHLC.close, tickerResponses.monthlyOHLC)
+                    if (!comparison) return null
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {comparison.passedOpen && (
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>
+                            Monthly Open: <span style={{ fontWeight: 600, color: comparison.passedOpen.direction === 'above' ? '#10b981' : '#ef4444' }}>
+                              {comparison.passedOpen.direction === 'above' ? 'Above' : 'Below'}
+                            </span>
+                          </div>
+                        )}
+                        {comparison.passedClose && (
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>
+                            Monthly Close: <span style={{ fontWeight: 600, color: comparison.passedClose.direction === 'above' ? '#10b981' : '#ef4444' }}>
+                              {comparison.passedClose.direction === 'above' ? 'Above' : 'Below'}
+                            </span>
+                          </div>
+                        )}
+                        {comparison.passedHigh !== null && (
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>
+                            Above Monthly High: <span style={{ fontWeight: 600, color: comparison.passedHigh ? '#10b981' : '#6b7280' }}>
+                              {comparison.passedHigh ? 'Yes' : 'No'}
+                            </span>
+                          </div>
+                        )}
+                        {comparison.passedLow !== null && (
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>
+                            Below Monthly Low: <span style={{ fontWeight: 600, color: comparison.passedLow ? '#ef4444' : '#6b7280' }}>
+                              {comparison.passedLow ? 'Yes' : 'No'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* ── STRATEGY QUALIFIER SECTION ── */}
           <div style={{ marginBottom: 28 }}>
@@ -939,21 +1417,234 @@ export default function WeeklyPrep() {
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
                       {question.text}
                     </div>
-                    <div style={{ fontSize: 14, color: '#1f2937', background: '#f9fafb', padding: '10px 12px', borderRadius: 8, minHeight: 20 }}>
-                      {question.type === 'boolean'
-                        ? (val === true ? <span style={{ color: '#10b981', fontWeight: 600 }}>Yes</span>
-                           : val === false ? <span style={{ color: '#ef4444', fontWeight: 600 }}>No</span>
-                           : <span style={{ color: '#9ca3af' }}>Not answered</span>)
-                        : question.type === 'select'
-                        ? (val ? <span style={{ color: '#3b82f6', fontWeight: 600 }}>{val}</span> : <span style={{ color: '#9ca3af' }}>Not answered</span>)
-                        : (val && val.trim() ? val : <span style={{ color: '#9ca3af' }}>Not answered</span>)
-                      }
-                    </div>
+                    {question.type === 'candle-analysis' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {val && (val.candleCount || val.overlapping !== undefined || val.extendedKeltner !== undefined) ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+                              <span style={{ color: '#6b7280', width: 180 }}>Candles above 10 EMA:</span>
+                              <span style={{ fontWeight: 600, color: '#1f2937' }}>{val.candleCount || '-'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+                              <span style={{ color: '#6b7280', width: 180 }}>Overlapping candles:</span>
+                              <span style={{ fontWeight: 600, color: val.overlapping ? '#f59e0b' : '#6b7280' }}>
+                                {val.overlapping === true ? 'Yes' : val.overlapping === false ? 'No' : '-'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+                              <span style={{ color: '#6b7280', width: 180 }}>Extended beyond Keltner:</span>
+                              <span style={{ fontWeight: 600, color: val.extendedKeltner ? '#ef4444' : '#10b981' }}>
+                                {val.extendedKeltner === true ? 'Yes' : val.extendedKeltner === false ? 'No' : '-'}
+                              </span>
+                            </div>
+                          </>
+                        ) : <div style={{ background: '#f9fafb', padding: '10px 12px', borderRadius: 8 }}><span style={{ color: '#9ca3af' }}>Not answered</span></div>}
+                      </div>
+                    ) : question.type === 'trend-group' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {val && Object.keys(val).length > 0 ? question.timeframes.map(tf => {
+                          const tfValue = val[tf]
+                          const bgColor = tfValue === 'Bullish' ? '#dcfce7' : tfValue === 'Bearish' ? '#fee2e2' : tfValue === 'Choppy' ? '#fef3c7' : '#f3f4f6'
+                          const textColor = tfValue === 'Bullish' ? '#16a34a' : tfValue === 'Bearish' ? '#dc2626' : tfValue === 'Choppy' ? '#d97706' : '#9ca3af'
+                          return (
+                            <div key={tf} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+                              <span style={{ fontWeight: 600, color: '#374151', width: 70 }}>{tf}</span>
+                              <span style={{ padding: '2px 10px', borderRadius: 4, fontSize: 12, fontWeight: 600, background: bgColor, color: textColor }}>
+                                {tfValue || 'Not set'}
+                              </span>
+                            </div>
+                          )
+                        }) : <div style={{ background: '#f9fafb', padding: '10px 12px', borderRadius: 8 }}><span style={{ color: '#9ca3af' }}>Not answered</span></div>}
+                      </div>
+                    ) : question.type === 'ema-group' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {val && Object.keys(val).length > 0 ? question.emas.map(ema => {
+                          const emaData = val[ema] || {}
+                          return (
+                            <div key={ema} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+                              <span style={{ fontWeight: 600, color: '#374151', width: 60 }}>EMA {ema}</span>
+                              {emaData.position && (
+                                <span style={{
+                                  padding: '2px 10px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+                                  background: emaData.position === 'Above' ? '#dcfce7' : '#fee2e2',
+                                  color: emaData.position === 'Above' ? '#16a34a' : '#dc2626',
+                                }}>
+                                  {emaData.position}
+                                </span>
+                              )}
+                              {emaData.direction && (
+                                <span style={{
+                                  padding: '2px 10px', borderRadius: 4, fontSize: 12, fontWeight: 600,
+                                  background: emaData.direction === 'Pointing Up' ? '#dcfce7' : emaData.direction === 'Pointing Down' ? '#fee2e2' : '#f3f4f6',
+                                  color: emaData.direction === 'Pointing Up' ? '#16a34a' : emaData.direction === 'Pointing Down' ? '#dc2626' : '#6b7280',
+                                }}>
+                                  {emaData.direction === 'Pointing Up' ? '↑ Up' : emaData.direction === 'Pointing Down' ? '↓ Down' : '→ Flat'}
+                                </span>
+                              )}
+                              {!emaData.position && !emaData.direction && <span style={{ color: '#9ca3af', fontSize: 12 }}>Not set</span>}
+                            </div>
+                          )
+                        }) : <div style={{ background: '#f9fafb', padding: '10px 12px', borderRadius: 8 }}><span style={{ color: '#9ca3af' }}>Not answered</span></div>}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 14, color: '#1f2937', background: '#f9fafb', padding: '10px 12px', borderRadius: 8, minHeight: 20 }}>
+                        {question.type === 'boolean'
+                          ? (val === true ? <span style={{ color: '#10b981', fontWeight: 600 }}>Yes</span>
+                             : val === false ? <span style={{ color: '#ef4444', fontWeight: 600 }}>No</span>
+                             : <span style={{ color: '#9ca3af' }}>Not answered</span>)
+                          : question.type === 'select'
+                          ? (val ? <span style={{ color: '#3b82f6', fontWeight: 600 }}>{val}</span> : <span style={{ color: '#9ca3af' }}>Not answered</span>)
+                          : (val && typeof val === 'string' && val.trim() ? val : <span style={{ color: '#9ca3af' }}>Not answered</span>)
+                        }
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
           ))}
+
+          {/* ── WEEKLY PRICE ACTION (READ-ONLY) ── */}
+          {(tickerResponses.weeklyOHLC || tickerResponses.weeklyPatterns?.length || tickerResponses.flagPattern || tickerResponses.srZones || tickerResponses.monthlyOHLC) && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{
+                fontSize: 13, fontWeight: 700, color: '#6b7280',
+                textTransform: 'uppercase', letterSpacing: 0.5,
+                marginBottom: 16, paddingBottom: 8,
+                borderBottom: '1px solid #e5e7eb',
+              }}>
+                Weekly Price Action
+              </div>
+
+              {/* Weekly OHLC */}
+              {tickerResponses.weeklyOHLC && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Previous Week OHLC</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                    {['open', 'high', 'low', 'close'].map(field => (
+                      <div key={field} style={{ background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+                        <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'capitalize' }}>{field}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#1f2937' }}>{tickerResponses.weeklyOHLC[field] || '-'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {tickerResponses.weeklyOHLC.open && tickerResponses.weeklyOHLC.close && (
+                    <div style={{ marginTop: 8 }}>
+                      <span style={{ fontSize: 13, color: '#6b7280', marginRight: 8 }}>Calculated Bias:</span>
+                      {(() => {
+                        const bias = calculateWeeklyBias(tickerResponses.weeklyOHLC.open, tickerResponses.weeklyOHLC.close)
+                        const biasColors = { Bullish: '#10b981', Bearish: '#ef4444', Neutral: '#6b7280' }
+                        const biasBg = { Bullish: '#dcfce7', Bearish: '#fee2e2', Neutral: '#f3f4f6' }
+                        return bias ? (
+                          <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: biasBg[bias], color: biasColors[bias] }}>
+                            {bias}
+                          </span>
+                        ) : null
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Weekly Patterns */}
+              {tickerResponses.weeklyPatterns?.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Weekly Patterns</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {tickerResponses.weeklyPatterns.map(p => (
+                      <span key={p} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, background: '#dbeafe', color: '#1d4ed8' }}>{p}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Flag Pattern */}
+              {tickerResponses.flagPattern && tickerResponses.flagPattern !== 'None' && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Flag/Pennant Pattern</div>
+                  <span style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#f3f4f6', color: '#374151' }}>{tickerResponses.flagPattern}</span>
+                </div>
+              )}
+
+              {/* S/R Zones */}
+              {tickerResponses.srZones && Object.keys(tickerResponses.srZones).length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Support/Resistance Zones</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {[
+                      { key: 'weeklySupport', label: 'Weekly Support' },
+                      { key: 'weeklyResistance', label: 'Weekly Resistance' },
+                      { key: 'monthlySupport', label: 'Monthly Support' },
+                      { key: 'monthlyResistance', label: 'Monthly Resistance' },
+                    ].filter(({ key }) => tickerResponses.srZones[key] !== undefined).map(({ key, label }) => (
+                      <div key={key} style={{ background: '#f9fafb', padding: '8px 12px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: '#6b7280' }}>{label}</span>
+                        <span style={{ fontWeight: 600, color: tickerResponses.srZones[key] ? '#10b981' : '#ef4444' }}>
+                          {tickerResponses.srZones[key] ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Monthly OHLC */}
+              {tickerResponses.monthlyOHLC && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Previous Month OHLC</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                    {['open', 'high', 'low', 'close'].map(field => (
+                      <div key={field} style={{ background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+                        <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'capitalize' }}>{field}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#1f2937' }}>{tickerResponses.monthlyOHLC[field] || '-'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {tickerResponses.weeklyOHLC?.close && (
+                    <div style={{ marginTop: 12, background: '#f9fafb', padding: 12, borderRadius: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Monthly Level Comparison</div>
+                      {(() => {
+                        const comparison = calculateMonthlyComparison(tickerResponses.weeklyOHLC.close, tickerResponses.monthlyOHLC)
+                        if (!comparison) return null
+                        return (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            {comparison.passedOpen && (
+                              <div style={{ fontSize: 12, color: '#6b7280' }}>
+                                Monthly Open: <span style={{ fontWeight: 600, color: comparison.passedOpen.direction === 'above' ? '#10b981' : '#ef4444' }}>
+                                  {comparison.passedOpen.direction === 'above' ? 'Above' : 'Below'}
+                                </span>
+                              </div>
+                            )}
+                            {comparison.passedClose && (
+                              <div style={{ fontSize: 12, color: '#6b7280' }}>
+                                Monthly Close: <span style={{ fontWeight: 600, color: comparison.passedClose.direction === 'above' ? '#10b981' : '#ef4444' }}>
+                                  {comparison.passedClose.direction === 'above' ? 'Above' : 'Below'}
+                                </span>
+                              </div>
+                            )}
+                            {comparison.passedHigh !== null && (
+                              <div style={{ fontSize: 12, color: '#6b7280' }}>
+                                Above Monthly High: <span style={{ fontWeight: 600, color: comparison.passedHigh ? '#10b981' : '#6b7280' }}>
+                                  {comparison.passedHigh ? 'Yes' : 'No'}
+                                </span>
+                              </div>
+                            )}
+                            {comparison.passedLow !== null && (
+                              <div style={{ fontSize: 12, color: '#6b7280' }}>
+                                Below Monthly Low: <span style={{ fontWeight: 600, color: comparison.passedLow ? '#ef4444' : '#6b7280' }}>
+                                  {comparison.passedLow ? 'Yes' : 'No'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── STRATEGY QUALIFIER RESULTS (READ-ONLY) ── */}
           {tickerResponses.strategyQualifier && Object.keys(tickerResponses.strategyQualifier).length > 0 && (

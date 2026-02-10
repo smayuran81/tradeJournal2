@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(open:*)",
-      "Bash(code:*)"
+      "Bash(code:*)",
+      "Read(//Users/mayuransiva/dev2/TrdingApps/**)"
     ]
   }
 }

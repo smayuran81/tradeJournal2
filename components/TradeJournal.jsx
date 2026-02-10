@@ -883,10 +883,10 @@ export default function TradeJournal({ monthFilter }) {
                   if (isNaN(d.getTime())) return ''
                   return d.toISOString().slice(0, 16)
                 }
-                // Entry time: use entryTime, fallback to createdAt
-                const entryTimeValue = trade.entryTime || formatDateTimeLocal(trade.createdAt)
-                // Exit time: use exitTime, fallback to updatedAt when trade is closed
-                const exitTimeValue = trade.exitTime || (trade.result && trade.result !== 'Open' ? formatDateTimeLocal(trade.updatedAt) : '')
+                // Entry time: use entryTime, fallback to createdAt — always format for datetime-local input
+                const entryTimeValue = formatDateTimeLocal(trade.entryTime) || formatDateTimeLocal(trade.createdAt)
+                // Exit time: use exitTime, fallback to updatedAt when trade is closed — always format for datetime-local input
+                const exitTimeValue = formatDateTimeLocal(trade.exitTime) || (trade.result && trade.result !== 'Open' ? formatDateTimeLocal(trade.updatedAt) : '')
                 setCreating({
                   pair: trade.pair || '',
                   entryPrice: trade.entryPrice || '',

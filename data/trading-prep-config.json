@@ -1,0 +1,290 @@
+{
+  "page": "Weekly Forex Prep – Daily Pullback Strategy",
+  "description": "Top-down weekly preparation workflow to qualify forex pairs for daily pullback trades using 10/20/50 EMAs and Keltner Channel.",
+  "timeframeFlow": ["Monthly", "Weekly", "Daily", "4H"],
+  "indicators": {
+    "emas": [10, 20, 50],
+    "keltnerChannel": true
+  },
+
+  "prepTickers": [
+    "EURUSD", "GBPUSD", "USDJPY", "USDCAD", "AUDUSD",
+    "NZDUSD", "USDCHF", "SPX500", "NAS100", "XAUUSD"
+  ],
+
+  "sections": [
+    {
+      "id": "monthlyContext",
+      "title": "Monthly Context",
+      "goal": "Establish higher timeframe bias and eliminate pairs against macro structure.",
+      "questions": [
+        {
+          "id": "m1",
+          "text": "Monthly Trend Direction",
+          "type": "select",
+          "options": ["Bullish", "Bearish", "Range"],
+          "required": true
+        },
+        {
+          "id": "m2",
+          "text": "Monthly Close vs EMAs (20/50)",
+          "type": "emaPosition",
+          "emas": [20, 50],
+          "options": ["Above", "Below", "Inside"],
+          "required": true
+        },
+        {
+          "id": "m3",
+          "text": "Monthly Price at Key Levels",
+          "type": "multiBoolean",
+          "fields": [
+            "Monthly Support",
+            "Monthly Resistance",
+            "Major Supply/Demand Zone"
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "condition": "m1 == 'Range'",
+          "outcome": "pairStatus = 'Low Priority'"
+        }
+      ]
+    },
+
+    {
+      "id": "weeklyStructure",
+      "title": "Weekly Structure",
+      "goal": "Determine weekly alignment or corrective phase.",
+      "questions": [
+        {
+          "id": "w1",
+          "text": "Weekly Trend State",
+          "type": "select",
+          "options": ["Bullish", "Bearish", "Corrective"],
+          "required": true
+        },
+        {
+          "id": "w2",
+          "text": "Previous Week OHLC",
+          "type": "ohlc",
+          "autoBias": true
+        },
+        {
+          "id": "w3",
+          "text": "Weekly Close Relative to EMAs",
+          "type": "emaPosition",
+          "emas": [10, 20, 50],
+          "options": ["Above", "Below", "Between"]
+        },
+        {
+          "id": "w4",
+          "text": "Weekly Price Action Pattern",
+          "type": "select",
+          "options": [
+            "Continuation",
+            "Pullback",
+            "Reversal",
+            "Indecision"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "dailyPullback",
+      "title": "Daily Pullback Qualification",
+      "goal": "Validate clean pullback into value for trend continuation.",
+      "questions": [
+        {
+          "id": "d1",
+          "text": "Daily Trend Direction",
+          "type": "select",
+          "options": ["Bullish", "Bearish"],
+          "required": true
+        },
+        {
+          "id": "d2",
+          "text": "Daily EMA Alignment",
+          "type": "emaGroup",
+          "emas": [10, 20, 50],
+          "fields": [
+            {
+              "key": "pricePosition",
+              "label": "Price",
+              "options": ["Above", "Below"]
+            },
+            {
+              "key": "emaSlope",
+              "label": "Slope",
+              "options": ["Up", "Flat", "Down"]
+            }
+          ]
+        },
+        {
+          "id": "d3",
+          "text": "Pullback Depth Relative to EMAs",
+          "type": "select",
+          "options": [
+            "To 10 EMA",
+            "Between 10–20 EMA",
+            "To 50 EMA",
+            "Too Deep"
+          ],
+          "required": true
+        },
+        {
+          "id": "d4",
+          "text": "Keltner Channel Interaction",
+          "type": "select",
+          "options": [
+            "Pullback to Midline",
+            "Inside Channel (Healthy)",
+            "Outside Channel (Extended)"
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "condition": "d3 == 'Too Deep'",
+          "outcome": "pairStatus = 'Disqualified'"
+        }
+      ]
+    },
+
+    {
+      "id": "candleQuality",
+      "title": "Daily Candle Quality",
+      "goal": "Assess price action cleanliness and reference candle validity.",
+      "questions": [
+        {
+          "id": "c1",
+          "text": "Price Consolidating Near Last Strong Impulse Candle?",
+          "type": "boolean"
+        },
+        {
+          "id": "c2",
+          "text": "Number of Inside / Overlapping Candles",
+          "type": "number"
+        },
+        {
+          "id": "c3",
+          "text": "Reference Candle Strength",
+          "type": "select",
+          "options": ["Strong Impulse", "Average", "Weak"]
+        }
+      ]
+    },
+
+    {
+      "id": "lowerTimeframe",
+      "title": "4H Confirmation",
+      "goal": "Confirm continuation structure without using 4H for entries.",
+      "questions": [
+        {
+          "id": "h1",
+          "text": "4H Market Structure",
+          "type": "select",
+          "options": ["HH/HL", "LH/LL", "Range"]
+        },
+        {
+          "id": "h2",
+          "text": "4H Pullback Quality",
+          "type": "select",
+          "options": ["Shallow", "Deep", "Messy"]
+        }
+      ]
+    },
+
+    {
+      "id": "fundamentalRisk",
+      "title": "Risk & News",
+      "goal": "Identify event-driven risk affecting execution.",
+      "questions": [
+        {
+          "id": "n1",
+          "text": "High Impact News Scheduled This Week?",
+          "type": "boolean"
+        },
+        {
+          "id": "n2",
+          "text": "Central Bank Decision This Week?",
+          "type": "boolean"
+        }
+      ],
+      "rules": [
+        {
+          "condition": "n1 == true || n2 == true",
+          "outcome": "riskTag = 'Reduce Size / Wait'"
+        }
+      ]
+    },
+
+    {
+      "id": "weeklyVerdict",
+      "title": "Weekly Qualification Verdict",
+      "goal": "Produce an objective trade-readiness outcome.",
+      "questions": [
+        {
+          "id": "v1",
+          "text": "Overall Qualification",
+          "type": "select",
+          "options": ["A+ Setup", "Watchlist", "No Trade"],
+          "required": true
+        },
+        {
+          "id": "v2",
+          "text": "Directional Bias",
+          "type": "select",
+          "options": ["Long Only", "Short Only"]
+        },
+        {
+          "id": "v3",
+          "text": "Execution Notes",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+
+  "strategyQualifiers": [
+    {
+      "id": "daily-pullback",
+      "name": "Daily Pull back",
+      "questions": [
+        { "id": "dp-q1", "text": "Is price trending on the daily timeframe?", "yes": "dp-q2", "no": "NOT_QUALIFIED" },
+        { "id": "dp-q2", "text": "Is price pulling back to 10/20 EMA or key support?", "yes": "dp-q3", "no": "NOT_QUALIFIED" },
+        { "id": "dp-q3", "text": "Is there a rejection candle or reversal signal at the pullback level?", "yes": "QUALIFIED", "no": "NOT_QUALIFIED" }
+      ]
+    },
+    {
+      "id": "sr-breakout",
+      "name": "Support/Resistance Breakout",
+      "questions": [
+        { "id": "sr-q1", "text": "Is price approaching a clearly defined support or resistance level?", "yes": "sr-q2", "no": "NOT_QUALIFIED" },
+        { "id": "sr-q2", "text": "Has the level been tested at least 2-3 times?", "yes": "sr-q3", "no": "NOT_QUALIFIED" },
+        { "id": "sr-q3", "text": "Is there increasing momentum (volume/candle size) into the level?", "yes": "sr-q4", "no": "NOT_QUALIFIED" },
+        { "id": "sr-q4", "text": "Is there a clean break and retest of the level?", "yes": "QUALIFIED", "no": "NOT_QUALIFIED" }
+      ]
+    },
+    {
+      "id": "pa-reversal",
+      "name": "Price Action Reversal",
+      "questions": [
+        { "id": "pa-q1", "text": "Is price at a key support/resistance or supply/demand zone?", "yes": "pa-q2", "no": "NOT_QUALIFIED" },
+        { "id": "pa-q2", "text": "Is there a clear reversal candlestick pattern (engulfing, pin bar, morning/evening star)?", "yes": "pa-q3", "no": "NOT_QUALIFIED" },
+        { "id": "pa-q3", "text": "Does the HTF trend or structure support the reversal direction?", "yes": "QUALIFIED", "no": "NOT_QUALIFIED" }
+      ]
+    },
+    {
+      "id": "fib-retracement",
+      "name": "Fibonacci Retracement",
+      "questions": [
+        { "id": "fib-q1", "text": "Is there a clear impulsive move to draw Fibonacci levels from?", "yes": "fib-q2", "no": "NOT_QUALIFIED" },
+        { "id": "fib-q2", "text": "Is price retracing to the 38.2%, 50%, or 61.8% level?", "yes": "fib-q3", "no": "NOT_QUALIFIED" },
+        { "id": "fib-q3", "text": "Does the fib level confluence with another support/resistance level?", "yes": "fib-q4", "no": "NOT_QUALIFIED" },
+        { "id": "fib-q4", "text": "Is there a price action confirmation signal at the fib level?", "yes": "QUALIFIED", "no": "NOT_QUALIFIED" }
+      ]
+    }
+  ]
+}
